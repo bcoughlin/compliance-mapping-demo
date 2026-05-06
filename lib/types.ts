@@ -2,7 +2,30 @@
 
 export type Severity = "green" | "yellow" | "red";
 
-export type Phase = "semgrep" | "callgraph" | "narrate";
+export type Phase =
+  | "semgrep"
+  | "callgraph"
+  | "narrate"
+  | "registry"
+  | "summarize";
+
+export interface ThemeSummary {
+  theme_id: string;
+  theme_version: string;
+  filename: string;
+  description: string;
+  regulations: Array<{
+    framework: string;
+    requirements: string[];
+  }>;
+  control_count: number;
+  evidence_items: string[];
+  trigger_summary: string;
+  sanitizers: string[];
+  sinks: string[];
+  plain_english_headline: string;
+  plain_english_summary: string;
+}
 
 export interface SemgrepFinding {
   rule_id: string;
@@ -132,9 +155,15 @@ export type RunEvent =
       at: string;
     }
   | {
+      type: "theme_summarized";
+      summary: ThemeSummary;
+      at: string;
+    }
+  | {
       type: "run_completed";
-      total_findings: number;
-      total_traces: number;
+      total_findings?: number;
+      total_traces?: number;
+      total_themes?: number;
       at: string;
     }
   | {

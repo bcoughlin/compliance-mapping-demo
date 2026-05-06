@@ -52,11 +52,32 @@ export async function GET(_req: NextRequest) {
 
         const callGraph = await buildCallGraph(projectRoot, "sample_codebase");
 
+        const crossModule = callGraph.filter(
+          (e) => e.target_file && e.target_file !== e.source_file,
+        );
+        const fileCount = new Set(callGraph.map((e) => e.source_file)).size;
+
+        const sampleLines = crossModule.slice(0, 12).map((e) => {
+          const src = e.source_file.replace(/^sample_codebase\//, "");
+          const tgt = (e.target_file ?? "?").replace(/^sample_codebase\//, "");
+          return `${src}:${e.source_line} → ${tgt} (.${e.target_function})`;
+        });
+        const remainder = crossModule.length - sampleLines.length;
+        const detail =
+          [
+            `${callGraph.length} edges across ${fileCount} files (${crossModule.length} cross-module)`,
+            "",
+            ...sampleLines,
+            remainder > 0 ? `… and ${remainder} more cross-module edges` : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+
         send({
           type: "phase_completed",
           phase: "callgraph",
-          summary: `Resolved ${callGraph.length} edges`,
-          detail: `${new Set(callGraph.map((e) => e.source_file)).size} files contributed call sites`,
+          summary: `Resolved ${callGraph.length} edges (${crossModule.length} cross-module)`,
+          detail,
           at: nowIso(),
         });
 

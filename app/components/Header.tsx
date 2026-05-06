@@ -1,27 +1,41 @@
 "use client";
 
 interface HeaderProps {
-  status: "idle" | "running" | "completed" | "errored";
-  hasRunHistory: boolean;
-  onRun: () => void;
+  // Map flow
+  mapStatus: "idle" | "running" | "completed" | "errored";
+  mapBuilt: boolean;
+  onBuildMap: () => void;
+  onOpenMapModal: () => void;
+
+  // Trace flow
+  traceStatus: "idle" | "running" | "completed" | "errored";
+  hasTraceHistory: boolean;
+  onRunTrace: () => void;
   onOpenRunModal: () => void;
+
+  // Common
   onShowTour: () => void;
   totalFindings?: number;
   totalTraces?: number;
 }
 
 export function Header({
-  status,
-  hasRunHistory,
-  onRun,
+  mapStatus,
+  mapBuilt,
+  onBuildMap,
+  onOpenMapModal,
+  traceStatus,
+  hasTraceHistory,
+  onRunTrace,
   onOpenRunModal,
   onShowTour,
   totalFindings,
   totalTraces,
 }: HeaderProps) {
-  const isRunning = status === "running";
-  const isDone = status === "completed";
-  const isErrored = status === "errored";
+  const isMapRunning = mapStatus === "running";
+  const isTraceRunning = traceStatus === "running";
+  const isTraceDone = traceStatus === "completed";
+  const isTraceErrored = traceStatus === "errored";
 
   return (
     <header className="sticky top-0 z-30 bg-stone-50/95 backdrop-blur border-b border-stone-200">
@@ -31,13 +45,13 @@ export function Header({
             Compliance Mapping Demo
           </h1>
           <p className="text-xs text-stone-500 mt-0.5">
-            I built this to show what a compliance mapping agent
-            actually does — not theoretically, actually. Click run.
+            I built this to show what a compliance mapping agent actually does — not theoretically, actually.
+            Two steps: <strong>build the map</strong>, then <strong>run the trace</strong>.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {isDone && (
+          {isTraceDone && (
             <div className="text-xs text-stone-600 hidden sm:flex items-center gap-3">
               <span>
                 <strong className="font-semibold text-stone-900">{totalFindings ?? 0}</strong> findings
@@ -57,29 +71,64 @@ export function Header({
             How this works
           </button>
 
-          {hasRunHistory ? (
+          {/* Step 1 — Build Map */}
+          {!mapBuilt ? (
+            <button
+              type="button"
+              onClick={onBuildMap}
+              disabled={isMapRunning}
+              className={`text-sm font-medium px-4 py-1.5 rounded-md transition-colors flex items-center gap-2
+                ${
+                  isMapRunning
+                    ? "bg-amber-100 text-amber-900 border border-amber-300 cursor-not-allowed"
+                    : "bg-stone-900 text-white hover:bg-stone-700"
+                }`}
+            >
+              {isMapRunning && <span className="pulse-dot" aria-hidden />}
+              {isMapRunning ? "Building map..." : "1. Build map"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenMapModal}
+              className="text-sm font-medium px-4 py-1.5 rounded-md border border-stone-300 text-stone-700 hover:bg-stone-100 transition-colors"
+              title="View the map artifact"
+            >
+              View map
+            </button>
+          )}
+
+          {/* Step 2 — Run Trace */}
+          {hasTraceHistory ? (
             <button
               type="button"
               onClick={onOpenRunModal}
               className={`text-sm font-medium px-4 py-1.5 rounded-md border transition-colors flex items-center gap-2
                 ${
-                  isRunning
+                  isTraceRunning
                     ? "border-amber-400 text-amber-800 bg-amber-50"
-                    : isErrored
+                    : isTraceErrored
                       ? "border-red-300 text-red-700 hover:bg-red-50"
                       : "border-stone-300 text-stone-700 hover:bg-stone-100"
                 }`}
             >
-              {isRunning && <span className="pulse-dot" aria-hidden />}
-              {isRunning ? "Run in progress" : "Current run"}
+              {isTraceRunning && <span className="pulse-dot" aria-hidden />}
+              {isTraceRunning ? "Trace in progress" : "Current trace"}
             </button>
           ) : (
             <button
               type="button"
-              onClick={onRun}
-              className="text-sm font-medium px-4 py-1.5 rounded-md bg-stone-900 text-white hover:bg-stone-700"
+              onClick={onRunTrace}
+              disabled={!mapBuilt || isTraceRunning}
+              className={`text-sm font-medium px-4 py-1.5 rounded-md transition-colors
+                ${
+                  mapBuilt && !isTraceRunning
+                    ? "bg-stone-900 text-white hover:bg-stone-700"
+                    : "bg-stone-200 text-stone-500 cursor-not-allowed"
+                }`}
+              title={mapBuilt ? "Run the trace using the map" : "Build the map first"}
             >
-              Run mapping
+              2. Run trace
             </button>
           )}
         </div>

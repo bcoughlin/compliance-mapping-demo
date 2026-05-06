@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Trace } from "@/lib/types";
+import { Markdown } from "@/app/components/Markdown";
 
 // svg-pan-zoom touches `window` at load time, so it must NOT be
 // statically imported in a Next.js client component (the build
@@ -199,9 +200,10 @@ export function MermaidView({
           <p className="text-[11px] uppercase tracking-wider text-stone-500 mb-1.5 font-medium">
             Agent rationale
           </p>
-          <div className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap font-sans">
-            {trace.rationale_markdown}
-          </div>
+          <Markdown
+            text={trace.rationale_markdown}
+            className="text-sm text-stone-800 leading-relaxed"
+          />
         </div>
       )}
     </div>

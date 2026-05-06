@@ -95,15 +95,43 @@ signers:
           Review Agent uses it at merge gates, audit dashboards roll it
           up for the CCO.
         </p>
-        <p className="mb-3">
-          What you&apos;re about to watch: the Mapping Agent tracing a
-          tagged Python payment service against three live themes, with
-          every finding cited back to the specific theme record and
-          regulatory requirement that anchors it.
-        </p>
         <p className="text-stone-600 text-sm">
           Note for this demo: themes are pre-loaded as input fixtures.
           Theme synthesis (steps 1–3 above) is its own demo.
+        </p>
+      </>
+    ),
+  },
+  {
+    title: "5. What you do here — two steps",
+    body: (
+      <>
+        <p className="mb-3">
+          The demo splits the work into two visible steps so the
+          architecture stays honest:
+        </p>
+        <ul className="list-disc pl-5 space-y-2 mb-3">
+          <li>
+            <strong>Step 1 — Build map.</strong> Click <em>1. Build map</em>{" "}
+            in the header. The agent reads the registry YAMLs and writes a
+            plain-English summary per theme. The result is the{" "}
+            <strong>map artifact</strong> — viewable any time via{" "}
+            <em>View map</em> in the header.
+          </li>
+          <li>
+            <strong>Step 2 — Run trace.</strong> Click{" "}
+            <em>2. Run trace</em>. The agent applies the map to the
+            codebase and produces three <strong>trace artifacts</strong>{" "}
+            (green / yellow / red), each citing the exact theme record
+            and regulatory requirement that anchors it. Red traces also
+            generate a draft incident report.
+          </li>
+        </ul>
+        <p>
+          Each trace has two views: <strong>Diagram</strong> (the data
+          flow as a Mermaid chart, click a node to see the code) and{" "}
+          <strong>Artifact</strong> (the audit-ready JSON record an
+          examiner would consume). The tabs are above the diagram pane.
         </p>
       </>
     ),
@@ -195,7 +223,36 @@ const TECHNICAL_STEPS = [
     ),
   },
   {
-    title: "4. Source",
+    title: "4. Two endpoints, two artifacts",
+    body: (
+      <>
+        <p className="mb-3">
+          The backend exposes two SSE routes you can watch live:
+        </p>
+        <ul className="list-disc pl-5 space-y-1.5 mb-3 text-sm">
+          <li>
+            <code>/api/run-map</code> — reads the YAML registry, has
+            Claude write a plain-English summary per theme, emits{" "}
+            <code>theme_summarized</code> events.
+          </li>
+          <li>
+            <code>/api/run</code> — runs Semgrep + the AST pass + the
+            multi-turn Claude loop, emits <code>trace_drafted</code>{" "}
+            events with the full v7-shaped <code>compliance_record</code>{" "}
+            (and a draft <code>incident_report</code> for red traces).
+          </li>
+        </ul>
+        <p className="mb-3">
+          Both produce structured JSON artifacts you can inspect in the
+          Artifact tab of each trace. That JSON is the same source of
+          truth a compliance auditor would consume — the visual
+          diagrams and the natural-language rationale are renders of it.
+        </p>
+      </>
+    ),
+  },
+  {
+    title: "5. Source",
     body: (
       <>
         <p className="mb-3">

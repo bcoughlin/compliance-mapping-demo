@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PhaseState } from "@/app/hooks/useRunStream";
+import { Markdown } from "@/app/components/Markdown";
 
 interface ActivityStreamProps {
   phases: PhaseState[];
@@ -19,6 +20,15 @@ const PHASE_LABEL_ACTIVE: Record<string, string> = {
   semgrep: "Semgrep taint analysis",
   callgraph: "AST call graph",
   narrate: "Live Claude Narration",
+};
+
+const PHASE_CONTEXT: Record<string, string> = {
+  semgrep:
+    "What happened: ran taint-mode rules derived from the theme registry against every Python file in `sample_codebase/`. Each finding is a flow from a regulated source (`card_number`, `ssn`, `bank_account`) into a sink (`audit_logger.log_event`, `logging.*`, HTTP response, outbound network) without passing through a required sanitizer (`tokenize`, `encrypt`, `verify_iam_role`). Rules carry the theme/control metadata they were derived from, so each finding cites exactly which control it tripped.",
+  callgraph:
+    "What happened: a Python AST walker visited every `.py` file under `sample_codebase/` and recorded every cross-module function call (e.g. `payment_handler.checkout` → `tokenization.tokenize` at line 26). The output is a coarse call graph at file granularity. It's not a precise control-flow analysis — it doesn't follow dynamic dispatch — but it gives Claude the structural skeleton for the trace diagrams without making the model re-discover the topology from raw source.",
+  narrate:
+    "What happens: Claude Opus 4.7 receives four inputs — the theme registry, the codebase contents, the Semgrep findings, and the call graph — and produces three trace artifacts by calling a `submit_trace` tool. Conversation runs as a multi-turn loop: model submits a trace, server replies with a tool_result, model submits the next, until all three are in. Text between tool calls streams live as you read this; tool calls materialize as **trace_drafted** events and populate the trace list on the left.",
 };
 
 export function ActivityStream({
@@ -140,24 +150,41 @@ function PhaseRow({ phase }: { phase: PhaseState }) {
 
       {expanded && (
         <div
-          className={`px-4 pb-3 pt-1 border-t ${
+          className={`px-4 pb-3 pt-2 border-t space-y-2 ${
             isClaudeStreaming ? "border-emerald-100" : "border-stone-100"
           }`}
         >
+          {/* "What happened here" context — same prose for every run, lives
+              client-side because it's metadata about the phase, not data
+              from this particular run. */}
+          {PHASE_CONTEXT[phase.phase] && (
+            <Markdown
+              text={PHASE_CONTEXT[phase.phase]}
+              className="text-xs text-stone-600 leading-relaxed bg-stone-50 px-3 py-2 rounded border border-stone-200"
+            />
+          )}
+
           {phase.liveText && (
             <div
               ref={liveRef}
-              className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto py-1"
+              className="text-sm text-stone-800 leading-relaxed max-h-72 overflow-y-auto py-1"
             >
-              {phase.liveText}
+              <Markdown text={phase.liveText} />
               {isActive && <span className={cursorClass} aria-hidden />}
             </div>
           )}
+
           {!phase.liveText && phase.detail && (
-            <pre className="font-mono text-xs text-stone-600 whitespace-pre-wrap">
-              {phase.detail}
-            </pre>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-stone-500 font-medium mb-1.5">
+                Raw output
+              </p>
+              <pre className="font-mono text-xs text-stone-600 whitespace-pre-wrap bg-stone-900/[0.03] px-3 py-2 rounded">
+                {phase.detail}
+              </pre>
+            </div>
           )}
+
           {!phase.liveText && !phase.detail && isActive && (
             <p
               className={`text-xs italic flex items-center gap-2 ${

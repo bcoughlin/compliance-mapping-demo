@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRunStream } from "@/app/hooks/useRunStream";
+import { useMapStream } from "@/app/hooks/useMapStream";
 import { Header } from "@/app/components/Header";
 import { IntroTour } from "@/app/components/IntroTour";
 import { RunModal } from "@/app/components/RunModal";
+import { MapModal } from "@/app/components/MapModal";
 import { TraceList } from "@/app/components/TraceList";
 import { MermaidView } from "@/app/components/MermaidView";
 import { CodeViewModal } from "@/app/components/CodeViewModal";
@@ -12,14 +14,21 @@ import { ArtifactPanel } from "@/app/components/ArtifactPanel";
 
 export default function HomePage() {
   const { state, start } = useRunStream();
+  const { state: mapState, start: startMap } = useMapStream();
   const [tourOpen, setTourOpen] = useState(true); // every visit
   const [runModalOpen, setRunModalOpen] = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
   const [centerTab, setCenterTab] = useState<"diagram" | "artifact">("diagram");
 
-  const handleStartRun = useCallback(() => {
+  const handleBuildMap = useCallback(() => {
+    startMap();
+    setMapModalOpen(true);
+  }, [startMap]);
+
+  const handleStartTrace = useCallback(() => {
     start();
     setRunModalOpen(true);
     setSelectedTraceId(null);
@@ -32,7 +41,8 @@ export default function HomePage() {
     setCodeModalOpen(true);
   }, []);
 
-  const hasRunHistory = state.status !== "idle" || state.phases.length > 0;
+  const hasTraceHistory = state.status !== "idle" || state.phases.length > 0;
+  const mapBuilt = mapState.status === "completed" && mapState.themes.length > 0;
 
   // Auto-select first trace as it arrives
   useEffect(() => {
@@ -76,9 +86,13 @@ export default function HomePage() {
   return (
     <div className="h-screen flex flex-col bg-stone-50 text-stone-900">
       <Header
-        status={state.status}
-        hasRunHistory={hasRunHistory}
-        onRun={handleStartRun}
+        mapStatus={mapState.status}
+        mapBuilt={mapBuilt}
+        onBuildMap={handleBuildMap}
+        onOpenMapModal={() => setMapModalOpen(true)}
+        traceStatus={state.status}
+        hasTraceHistory={hasTraceHistory}
+        onRunTrace={handleStartTrace}
         onOpenRunModal={() => setRunModalOpen(true)}
         onShowTour={() => setTourOpen(true)}
         totalFindings={state.totalFindings}
@@ -87,10 +101,17 @@ export default function HomePage() {
 
       <IntroTour open={tourOpen} onClose={() => setTourOpen(false)} />
 
+      <MapModal
+        open={mapModalOpen}
+        state={mapState}
+        onClose={() => setMapModalOpen(false)}
+        onRebuild={handleBuildMap}
+      />
+
       <RunModal
         open={runModalOpen}
         onClose={() => setRunModalOpen(false)}
-        onRunAgain={handleStartRun}
+        onRunAgain={handleStartTrace}
         status={state.status}
         phases={state.phases}
         errorMessage={state.errorMessage}
