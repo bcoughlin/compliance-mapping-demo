@@ -117,7 +117,6 @@ export async function streamMapRun(
           const idx =
             toolCallsInTurn.push({ id: block.id, jsonAccum: "" }) - 1;
           indexToToolCall.set(event.index, idx);
-          callbacks.onTextDelta("\n\n```json\n");
         }
       } else if (event.type === "content_block_delta") {
         const delta = event.delta;
@@ -127,13 +126,11 @@ export async function streamMapRun(
           const tcIdx = indexToToolCall.get(event.index);
           if (tcIdx !== undefined) {
             toolCallsInTurn[tcIdx].jsonAccum += delta.partial_json;
-            callbacks.onTextDelta(delta.partial_json);
           }
         }
       } else if (event.type === "content_block_stop") {
         const tcIdx = indexToToolCall.get(event.index);
         if (tcIdx !== undefined) {
-          callbacks.onTextDelta("\n```\n\n");
           const tc = toolCallsInTurn[tcIdx];
           try {
             const parsed = JSON.parse(tc.jsonAccum) as {
