@@ -113,7 +113,7 @@ export async function GET(_req: NextRequest) {
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        send({ type: "error", message, at: nowIso() });
+        send({ type: "run_error", message, at: nowIso() });
       } finally {
         clearInterval(heartbeat);
         if (!closed) {

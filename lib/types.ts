@@ -167,7 +167,7 @@ export type RunEvent =
       at: string;
     }
   | {
-      type: "error";
+      type: "run_error";
       phase?: Phase;
       message: string;
       at: string;

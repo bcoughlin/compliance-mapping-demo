@@ -130,7 +130,7 @@ function reducer(state: MapState, action: Action): MapState {
         totalThemes: e.total_themes ?? state.themes.length,
       };
     }
-    case "error": {
+    case "run_error": {
       return {
         ...state,
         status: "errored",
@@ -194,7 +194,7 @@ export function useMapStream() {
           return;
         }
         dispatch({ kind: "event", event: parsed });
-        if (parsed.type === "run_completed" || parsed.type === "error") {
+        if (parsed.type === "run_completed" || parsed.type === "run_error") {
           source.close();
         }
       } catch (err) {
@@ -209,7 +209,7 @@ export function useMapStream() {
       "narration_token",
       "theme_summarized",
       "run_completed",
-      "error",
+      "run_error",
     ].forEach((type) => {
       source.addEventListener(type, handle(type) as EventListener);
     });

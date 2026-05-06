@@ -177,7 +177,7 @@ export async function GET(_req: NextRequest) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(JSON.stringify({ runId, event: "run_error", message }));
         send({
-          type: "error",
+          type: "run_error",
           message,
           at: nowIso(),
         });

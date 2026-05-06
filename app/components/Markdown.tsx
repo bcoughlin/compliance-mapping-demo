@@ -161,12 +161,9 @@ function FencedBlock({
   const [expanded, setExpanded] = useState(!isClosed);
 
   // Auto-collapse when the closing fence arrives.
-  const prevClosed = React.useRef(isClosed);
-  if (isClosed && !prevClosed.current) {
-    prevClosed.current = true;
-    // Defer so render isn't mutated mid-cycle.
-    setTimeout(() => setExpanded(false), 0);
-  }
+  React.useEffect(() => {
+    if (isClosed) setExpanded(false);
+  }, [isClosed]);
 
   if (!isClosed || expanded) {
     return (

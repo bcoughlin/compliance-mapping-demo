@@ -151,7 +151,7 @@ function reducer(state: StreamState, action: Action): StreamState {
       };
     }
 
-    case "error": {
+    case "run_error": {
       return {
         ...state,
         status: "errored",
@@ -208,10 +208,13 @@ export function useRunStream() {
     sourceRef.current = source;
 
     const handle = (rawType: string) => (msg: MessageEvent) => {
+      // EventSource fires its own built-in "error" event (no data) when the
+      // connection drops. Guard so we don't JSON.parse undefined.
+      if (!msg.data) return;
       try {
         const parsed = JSON.parse(msg.data) as RunEvent;
         dispatch({ kind: "event", event: parsed });
-        if (parsed.type === "run_completed" || parsed.type === "error") {
+        if (parsed.type === "run_completed" || parsed.type === "run_error") {
           source.close();
         }
       } catch (err) {
@@ -226,7 +229,7 @@ export function useRunStream() {
       "narration_token",
       "trace_drafted",
       "run_completed",
-      "error",
+      "run_error",
     ].forEach((type) => {
       source.addEventListener(type, handle(type) as EventListener);
     });
