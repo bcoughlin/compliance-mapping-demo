@@ -172,30 +172,38 @@ export default function HomePage() {
             />
           </aside>
 
-          {/* Right: unified view tabs — Diagram, Incident report (red only), Audit record */}
+          {/* Right: unified view buttons — Diagram, Incident report, Audit record */}
           <div className="col-span-9 bg-white overflow-hidden flex flex-col min-h-0">
-            <div className="border-b border-stone-200 flex">
-              <CenterTab
+            <div className="border-b border-stone-200 px-3 py-2 flex gap-1.5">
+              <ViewButton
                 active={centerView === "diagram"}
                 onClick={() => setCenterView("diagram")}
               >
                 Diagram
-              </CenterTab>
-              {selectedTrace?.incident_report && (
-                <CenterTab
+              </ViewButton>
+              {selectedTrace?.incident_report ? (
+                <ViewButton
                   active={centerView === "incident_report"}
                   onClick={() => setCenterView("incident_report")}
                 >
                   Incident report
-                </CenterTab>
+                </ViewButton>
+              ) : (
+                <ViewButton
+                  active={false}
+                  disabled
+                  title="No incident report — trace was not severity RED"
+                >
+                  No incident
+                </ViewButton>
               )}
-              <CenterTab
+              <ViewButton
                 active={centerView === "audit_record"}
                 onClick={() => setCenterView("audit_record")}
                 disabled={!selectedTrace}
               >
                 Audit record (JSON)
-              </CenterTab>
+              </ViewButton>
             </div>
             <div className="flex-1 min-h-0">
               {centerView === "diagram" && (
@@ -224,15 +232,17 @@ export default function HomePage() {
   );
 }
 
-function CenterTab({
+function ViewButton({
   active,
   onClick,
   disabled,
+  title,
   children,
 }: {
   active: boolean;
-  onClick: () => void;
+  onClick?: () => void;
   disabled?: boolean;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -240,13 +250,15 @@ function CenterTab({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors
+      title={title}
+      className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors
         ${
           active
-            ? "border-stone-900 text-stone-900"
-            : "border-transparent text-stone-500 hover:text-stone-800"
-        }
-        ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+            ? "bg-stone-900 text-white"
+            : disabled
+              ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+              : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+        }`}
     >
       {children}
     </button>
