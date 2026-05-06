@@ -60,7 +60,12 @@ export function MermaidView({
         });
 
         const source = forceVerticalOrientation(trace.mermaid);
-        const id = `mmd-${trace.trace_id}-${Date.now()}`;
+        // Mermaid feeds the id straight into a CSS querySelector, so it
+        // must be a valid CSS identifier — no colons, dots, slashes, etc.
+        // Some trace_ids embed ISO timestamps ("2026-01-15T00:00:00Z")
+        // whose colons break the selector.
+        const safeTraceId = trace.trace_id.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const id = `mmd-${safeTraceId}-${Date.now()}`;
         const { svg } = await mermaid.render(id, source);
 
         if (cancelled || !containerRef.current) return;
