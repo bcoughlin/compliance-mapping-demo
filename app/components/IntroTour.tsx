@@ -117,7 +117,7 @@ signers:
   - Compliance: Jane R.
   - Legal: Marcus T.
   - Security: Priya S.
-  - Engineering: Brad C.`}</pre>
+  - Engineering: Alex T.`}</pre>
         <p>
           Humans still own the call. The agent proposes, the forum
           disposes.
@@ -136,8 +136,9 @@ signers:
           up for the CCO.
         </p>
         <p className="text-stone-600 text-sm">
-          Note for this demo: themes are pre-loaded as input fixtures.
-          Theme synthesis (steps 1–3 above) is its own demo.
+          In this demo the themes arrive pre-ratified — steps 1–3 above
+          are out of scope here. The Mapping Agent picks up at step 4:
+          it reads the ratified registry and evaluates code against it.
         </p>
       </>
     ),
