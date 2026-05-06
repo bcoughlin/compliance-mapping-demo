@@ -185,6 +185,10 @@ export async function GET(_req: NextRequest) {
         clearInterval(heartbeat);
         if (!closed) {
           try {
+            // Send a trailing comment to flush any buffered bytes before
+            // closing — prevents ERR_INCOMPLETE_CHUNKED_ENCODING in prod.
+            controller.enqueue(encoder.encode(": end\n\n"));
+            await new Promise((r) => setTimeout(r, 50));
             controller.close();
           } catch {
             // already closed

@@ -118,6 +118,8 @@ export async function GET(_req: NextRequest) {
         clearInterval(heartbeat);
         if (!closed) {
           try {
+            controller.enqueue(encoder.encode(": end\n\n"));
+            await new Promise((r) => setTimeout(r, 50));
             controller.close();
           } catch {
             // already closed
