@@ -215,7 +215,7 @@ export function useMapStream() {
     });
 
     source.onerror = () => {
-      if (state.status === "running" && sourceRef.current === source) {
+      if (sourceRef.current === source) {
         source.close();
       }
     };
