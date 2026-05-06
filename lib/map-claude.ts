@@ -141,12 +141,16 @@ export async function streamMapRun(
               plain_english_headline: string;
               plain_english_summary: string;
             };
-            callbacks.onThemeSummary(
-              parsed.theme_id,
-              parsed.plain_english_headline,
-              parsed.plain_english_summary,
-            );
-            count++;
+            if (!parsed?.theme_id || !parsed.plain_english_headline || !parsed.plain_english_summary) {
+              console.error("theme tool call missing required fields", parsed);
+            } else {
+              callbacks.onThemeSummary(
+                parsed.theme_id,
+                parsed.plain_english_headline,
+                parsed.plain_english_summary,
+              );
+              count++;
+            }
           } catch (err) {
             console.error("failed to parse theme tool call json", err, tc.jsonAccum);
           }

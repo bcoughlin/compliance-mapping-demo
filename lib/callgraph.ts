@@ -17,7 +17,11 @@ export async function buildCallGraph(
     { maxBuffer: 8 * 1024 * 1024 },
   );
 
-  const edges = JSON.parse(stdout) as CallGraphEdge[];
+  const parsed: unknown = JSON.parse(stdout);
+  if (!Array.isArray(parsed)) {
+    throw new Error(`callgraph script returned non-array: ${typeof parsed}`);
+  }
+  const edges = parsed as CallGraphEdge[];
 
   // Normalize absolute paths to project-relative for consumer code.
   return edges.map((e) => ({

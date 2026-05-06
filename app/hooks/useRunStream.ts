@@ -242,7 +242,13 @@ export function useRunStream() {
         source.close();
       }
     };
-  }, [state.status]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close the EventSource if the component unmounts mid-run.
+  useEffect(() => {
+    return () => { sourceRef.current?.close(); };
+  }, []);
 
   const stop = useCallback(() => {
     sourceRef.current?.close();
