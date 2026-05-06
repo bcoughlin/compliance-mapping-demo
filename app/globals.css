@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #fafaf9;
+  --bg-panel: #ffffff;
+  --border: #e7e5e4;
+  --text: #1c1917;
+  --text-muted: #57534e;
+  --accent: #1e293b;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Code blocks (shiki output) */
+pre[class*="shiki"] {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Per-line decorators applied by the CodeView component */
+.line-green { background: rgb(220 252 231); border-left: 3px solid rgb(34 197 94); }
+.line-yellow { background: rgb(254 249 195); border-left: 3px solid rgb(234 179 8); }
+.line-red { background: rgb(254 226 226); border-left: 3px solid rgb(239 68 68); }
+
+/* Disclosure animation for collapsed activity rows */
+.disclosure-collapsed { max-height: 2.25rem; overflow: hidden; transition: max-height 200ms ease; }
+.disclosure-open { max-height: 80vh; overflow: auto; transition: max-height 200ms ease; }
