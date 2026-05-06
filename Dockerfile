@@ -54,9 +54,12 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Run as non-root.
+# Run as non-root. --create-home gives Semgrep a writable $HOME so it
+# can drop its log + cache directory there.
 RUN groupadd --system --gid 1001 nodejs \
- && useradd --system --uid 1001 --gid nodejs nextjs
+ && useradd --system --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nextjs \
+ && mkdir -p /home/nextjs/.semgrep \
+ && chown -R nextjs:nodejs /home/nextjs
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
