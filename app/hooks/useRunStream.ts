@@ -232,9 +232,10 @@ export function useRunStream() {
     });
 
     source.onerror = () => {
-      // EventSource will fire onerror when the server closes the stream
-      // normally; only flag as a real error if we haven't completed.
-      if (state.status === "running" && sourceRef.current === source) {
+      // Close immediately so EventSource doesn't auto-reconnect and fire
+      // a new run. run_completed / error event handlers already call
+      // source.close() in the happy path; this catches the disconnect case.
+      if (sourceRef.current === source) {
         source.close();
       }
     };
