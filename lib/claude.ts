@@ -442,6 +442,14 @@ export async function streamMappingRun(
     }
 
     const finalMessage = await stream.finalMessage();
+    console.log(JSON.stringify({
+      event: "claude_turn",
+      turn,
+      stop_reason: finalMessage.stop_reason,
+      input_tokens: finalMessage.usage.input_tokens,
+      output_tokens: finalMessage.usage.output_tokens,
+      traces_so_far: traces.length,
+    }));
 
     // Echo the assistant's full reply (text + tool_use) back into the conversation.
     conversation.push({

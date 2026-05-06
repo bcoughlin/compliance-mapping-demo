@@ -42,8 +42,14 @@ export async function GET(_req: NextRequest) {
         }
       }, 25_000);
 
+      const runId = `run-${Date.now()}`;
+      const t = (label: string, start: number) =>
+        console.log(JSON.stringify({ runId, event: label, ms: Date.now() - start }));
+
       try {
         // ── Phase: semgrep
+        console.log(JSON.stringify({ runId, event: "phase_start", phase: "semgrep" }));
+        const t0 = Date.now();
         send({
           type: "phase_started",
           phase: "semgrep",
@@ -52,6 +58,7 @@ export async function GET(_req: NextRequest) {
         });
 
         const findings = await runSemgrep(projectRoot, "semgrep", "sample_codebase");
+        t("phase_done:semgrep", t0);
 
         send({
           type: "phase_completed",
@@ -64,6 +71,8 @@ export async function GET(_req: NextRequest) {
         });
 
         // ── Phase: callgraph
+        console.log(JSON.stringify({ runId, event: "phase_start", phase: "callgraph" }));
+        const t1 = Date.now();
         send({
           type: "phase_started",
           phase: "callgraph",
@@ -72,6 +81,7 @@ export async function GET(_req: NextRequest) {
         });
 
         const callGraph = await buildCallGraph(projectRoot, "sample_codebase");
+        t("phase_done:callgraph", t1);
 
         const crossModule = callGraph.filter(
           (e) => e.target_file && e.target_file !== e.source_file,
@@ -103,6 +113,8 @@ export async function GET(_req: NextRequest) {
         });
 
         // ── Phase: narrate
+        console.log(JSON.stringify({ runId, event: "phase_start", phase: "narrate" }));
+        const t2 = Date.now();
         send({
           type: "phase_started",
           phase: "narrate",
@@ -129,6 +141,7 @@ export async function GET(_req: NextRequest) {
               });
             },
             onTraceComplete: (trace) => {
+              console.log(JSON.stringify({ runId, event: "trace_drafted", severity: trace.severity, ms: Date.now() - t2 }));
               send({
                 type: "trace_drafted",
                 trace,
@@ -137,6 +150,7 @@ export async function GET(_req: NextRequest) {
             },
           },
         );
+        t("phase_done:narrate", t2);
 
         send({
           type: "phase_completed",
@@ -152,6 +166,7 @@ export async function GET(_req: NextRequest) {
           at: nowIso(),
         });
 
+        console.log(JSON.stringify({ runId, event: "run_completed", traces: result.traces.length, findings: findings.length }));
         send({
           type: "run_completed",
           total_findings: findings.length,
@@ -160,6 +175,7 @@ export async function GET(_req: NextRequest) {
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
+        console.error(JSON.stringify({ runId, event: "run_error", message }));
         send({
           type: "error",
           message,
