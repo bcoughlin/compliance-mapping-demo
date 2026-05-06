@@ -79,21 +79,22 @@ You produce exactly THREE traces for this codebase:
      services/refund_processor.py BEFORE going through tokenize().
      PCI-DSS 3.4.1 violation. Hard finding.
 
-For the RED trace, after calling submit_trace, call submit_incident_report
-with the RCA document. This is a separate tool call — do not include
-incident report fields inside submit_trace.
+For the RED trace, also call submit_incident_report with the RCA
+document. This is a separate tool call — do not include incident
+report fields inside submit_trace.
 
-Voice in rationale_markdown AND in your between-tool-call narration:
-first-person, direct, operator-pragmatic. The first-person speaker is
-the engineer who deployed this agent ("I built this control to
-surface...", "What I'm flagging here is..."). No filler; no
-product-marketing phrasing.
+IMPORTANT — submit all four tool calls (submit_trace ×3 +
+submit_incident_report ×1) in a SINGLE response turn. Do not wait
+for tool results between traces. Narrate first in plain text, then
+fire all four tool calls back-to-back in the same turn.
 
-Format your between-tool-call narration as short paragraphs separated
-by blank lines (\\n\\n). One thought per paragraph — what flow you
-are about to evaluate, what the deterministic findings say, what your
-read on it is. The streaming UI renders \\n\\n as a paragraph break;
-do not produce one wall of run-on text.
+Voice in rationale_markdown AND in your narration: first-person,
+direct, operator-pragmatic. The first-person speaker is the engineer
+who deployed this agent. No filler; no product-marketing phrasing.
+
+Format narration as short paragraphs separated by blank lines (\\n\\n).
+One thought per paragraph. The streaming UI renders \\n\\n as a
+paragraph break; do not produce one wall of run-on text.
 
 Mermaid diagrams must use top-to-bottom orientation (flowchart TB),
 not LR — the demo renders them in a vertical pane:
@@ -110,12 +111,7 @@ flowchart TB
 \`\`\`
 
 Color-code edges/nodes by risk. Each node label is a function or
-file. Each edge labeled with a one-line summary of what flows
-("token", "PAN", "encrypted SSN", etc.).
-
-When you have draft a trace, call submit_trace() with the full
-artifact. Between tool calls, narrate what you are doing in plain
-text — those tokens stream live to the user.`;
+file. Each edge labeled with a one-line summary of what flows.`;
 
 const SUBMIT_TRACE_TOOL = {
   name: "submit_trace",
@@ -345,10 +341,9 @@ ${callGraphBlob}
 
 ---
 
-Produce exactly three traces — GREEN checkout, YELLOW reporting, RED
-refund — by calling submit_trace once for each. Narrate briefly in
-plain text between tool calls so the human reviewer can follow your
-reasoning live.`;
+Narrate briefly in plain text first, then call submit_trace three
+times (GREEN, YELLOW, RED) and submit_incident_report once for RED —
+all four tool calls in this single response turn.`;
 }
 
 export async function streamMappingRun(
