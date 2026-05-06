@@ -1,0 +1,54 @@
+theme_id: CRYPTOGRAPHIC_KEYS
+theme_version: 2026.1.0
+ratified_by: governance_forum
+ratified_at: 2026-01-15
+description: >
+  Cryptographic keys used to protect cardholder data and NPI must
+  themselves be protected against disclosure and misuse — held in a
+  KMS-backed vault, accessed only through named IAM roles, and rotated
+  on a documented schedule.
+
+regulations:
+  - framework: pci_dss_v4_0
+    requirements:
+      - id: "3.5.1"
+        text: "Cryptographic keys used for encryption of cardholder data must be protected against disclosure and misuse."
+      - id: "3.6.1"
+        text: "Procedures for cryptographic key changes are documented and operational."
+      - id: "3.7"
+        text: "Key management policies and procedures fully document and operationalize key lifecycle."
+  - framework: soc_2
+    criteria:
+      - "CC6.1"
+      - "CC6.6"
+
+triggers:
+  imports:
+    - "cryptography.hazmat"
+    - "boto3.client('kms')"
+  iac_resources:
+    - "aws_kms_key"
+    - "aws_kms_alias"
+  fields:
+    - name: encryption_key
+      aliases: [data_key, master_key, kek, dek]
+
+required_controls:
+  - control_id: KEY_001
+    description: "Keys live in KMS; the application loads only data keys via envelope decryption."
+    detection: "No raw key material may appear inline in source files."
+  - control_id: KEY_002
+    description: "Access restricted to named IAM roles tied to specific services."
+  - control_id: KEY_003
+    description: "Rotation enabled with maximum age 365 days."
+
+required_evidence:
+  - kms_key_policy_json
+  - iam_role_grants_log
+  - rotation_configuration_snapshot
+
+sanitizers: []
+
+sinks:
+  - "logging.*"
+  - "audit_logger.log_event"

@@ -1,0 +1,65 @@
+theme_id: PERSONAL_FINANCIAL_DATA
+theme_version: 2026.1.0
+ratified_by: governance_forum
+ratified_at: 2026-01-15
+description: >
+  Nonpublic personal information held in a financial-institution
+  context: SSN, bank account / routing numbers, salary, employer-paid
+  benefits records. GLBA Safeguards Rule and state-level analogues
+  govern access controls, encryption-at-rest, and breach disclosure
+  obligations.
+
+regulations:
+  - framework: glba_safeguards
+    requirements:
+      - id: "314.4(c)(1)"
+        text: "Implement and periodically review access controls."
+      - id: "314.4(c)(4)"
+        text: "Encrypt customer information held or transmitted both in transit and at rest."
+      - id: "314.4(c)(5)"
+        text: "Adopt secure development practices for in-house developed applications."
+      - id: "314.4(j)"
+        text: "Establish a written incident response plan."
+  - framework: soc_2
+    criteria:
+      - "CC6.1"
+      - "CC6.6"
+
+triggers:
+  fields:
+    - name: ssn
+      aliases: [social_security_number, tax_id, tin]
+    - name: bank_account
+      aliases: [account_number, routing_number]
+    - name: salary
+      aliases: [income, wages, gross_pay]
+  request_keys:
+    - "ssn"
+    - "tax_id"
+    - "bank_account"
+    - "routing_number"
+
+required_controls:
+  - control_id: PFD_001
+    description: "NPI must be encrypted at rest using a KMS-backed envelope."
+    detection: "Reads from storage must pass through decrypt(); writes must pass through encrypt()."
+  - control_id: PFD_002
+    description: "Endpoints that return NPI must call a documented IAM-verification function before fetching."
+    detection: "A verify_iam_role() / require_role() call must precede the storage fetch."
+  - control_id: PFD_003
+    description: "NPI must not be transmitted to outbound notification channels in plaintext."
+
+required_evidence:
+  - encryption_at_rest_attested
+  - iam_verification_call_present
+  - access_log_records_caller
+
+sanitizers:
+  - "crypto.encrypt"
+  - "crypto.decrypt"
+
+sinks:
+  - "HTTP response body"
+  - "audit_logger.log_event"
+  - "logging.*"
+  - "email_sender.send_receipt"

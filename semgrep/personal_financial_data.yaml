@@ -1,0 +1,71 @@
+# Pattern rules derived from registry/personal_financial_data.yaml
+# theme_id: PERSONAL_FINANCIAL_DATA, theme_version: 2026.1.0
+
+rules:
+  - id: pfd-fetch-without-iam-verification
+    message: |
+      A function that fetches NPI from storage and returns it does not
+      call any IAM-verification function before the fetch.
+      Theme PERSONAL_FINANCIAL_DATA@2026.1.0, control PFD_002
+      (GLBA Safeguards 314.4(c)(1)): access controls must be implemented
+      and periodically reviewed; the evidence trail for "who can read this"
+      is incomplete without a verifiable authorization check.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      theme_id: PERSONAL_FINANCIAL_DATA
+      theme_version: 2026.1.0
+      control_id: PFD_002
+      framework: glba_safeguards
+      requirement: "314.4(c)(1)"
+
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def $FUNC(...):
+                ...
+                $X = payment_store.fetch_user_payments(...)
+                ...
+                return $Y
+      - pattern-not: |
+          def $FUNC(...):
+            ...
+            verify_iam_role(...)
+            ...
+            $X = payment_store.fetch_user_payments(...)
+            ...
+      - pattern-not: |
+          def $FUNC(...):
+            ...
+            require_role(...)
+            ...
+            $X = payment_store.fetch_user_payments(...)
+            ...
+
+  - id: pfd-direct-write-without-encryption
+    message: |
+      NPI is written to storage without passing through encrypt().
+      Theme PERSONAL_FINANCIAL_DATA@2026.1.0, control PFD_001
+      (GLBA Safeguards 314.4(c)(4)): customer information must be
+      encrypted at rest.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      theme_id: PERSONAL_FINANCIAL_DATA
+      theme_version: 2026.1.0
+      control_id: PFD_001
+      framework: glba_safeguards
+      requirement: "314.4(c)(4)"
+
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ["body"]["ssn"]
+      - pattern: $REQ["body"]["bank_account"]
+      - pattern: $REQ["body"]["routing_number"]
+
+    pattern-sanitizers:
+      - pattern: crypto.encrypt(...)
+      - pattern: encrypt(...)
+
+    pattern-sinks:
+      - pattern: payment_store.$F(...)
