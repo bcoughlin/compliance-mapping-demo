@@ -3,7 +3,7 @@ import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import type { ThemeSummary } from "./types";
 
-const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-4-7";
+const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5";
 
 function readEnvWithFallback(name: string): string {
   const fromEnv = process.env[name];

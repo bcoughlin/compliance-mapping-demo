@@ -7,7 +7,7 @@ import type {
   Trace,
 } from "./types";
 
-const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-4-7";
+const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5";
 
 /**
  * Read an env var with a fallback to .env.local if the process env value
