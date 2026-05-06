@@ -17,9 +17,30 @@ export async function GET(_req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let closed = false;
+
       const send = (event: RunEvent) => {
-        controller.enqueue(encoder.encode(encodeSSE(event)));
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(encodeSSE(event)));
+        } catch {
+          // Client disconnected; stop trying to write.
+          closed = true;
+        }
       };
+
+      // Heartbeat — write an SSE comment every 25s so any idle-timeout
+      // proxy in front of the app (App Runner's load balancer) doesn't
+      // consider the stream dead. The leading colon makes this a
+      // comment that the EventSource client will ignore.
+      const heartbeat = setInterval(() => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`: keepalive ${Date.now()}\n\n`));
+        } catch {
+          closed = true;
+        }
+      }, 25_000);
 
       try {
         // ── Phase: semgrep
@@ -145,7 +166,15 @@ export async function GET(_req: NextRequest) {
           at: nowIso(),
         });
       } finally {
-        controller.close();
+        clearInterval(heartbeat);
+        if (!closed) {
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+          closed = true;
+        }
       }
     },
   });

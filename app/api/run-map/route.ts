@@ -14,9 +14,25 @@ export async function GET(_req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let closed = false;
+
       const send = (event: RunEvent) => {
-        controller.enqueue(encoder.encode(encodeSSE(event)));
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(encodeSSE(event)));
+        } catch {
+          closed = true;
+        }
       };
+
+      const heartbeat = setInterval(() => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`: keepalive ${Date.now()}\n\n`));
+        } catch {
+          closed = true;
+        }
+      }, 25_000);
 
       try {
         // ── Phase: registry — read and parse YAML
@@ -99,7 +115,15 @@ export async function GET(_req: NextRequest) {
         const message = err instanceof Error ? err.message : String(err);
         send({ type: "error", message, at: nowIso() });
       } finally {
-        controller.close();
+        clearInterval(heartbeat);
+        if (!closed) {
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+          closed = true;
+        }
       }
     },
   });

@@ -405,12 +405,26 @@ export async function streamMappingRun(
         const tcIdx = indexToToolCall.get(event.index);
         if (tcIdx !== undefined) {
           const tc = toolCallsInTurn[tcIdx];
+          let parsed: Trace | null = null;
           try {
-            const parsed = JSON.parse(tc.jsonAccum) as Trace;
-            traces.push(parsed);
-            callbacks.onTraceComplete(parsed);
+            parsed = JSON.parse(tc.jsonAccum) as Trace;
           } catch (err) {
-            console.error("failed to parse tool call json", err, tc.jsonAccum);
+            console.error(
+              "[claude] failed to parse submit_trace JSON:",
+              err,
+              tc.jsonAccum,
+            );
+          }
+          if (parsed) {
+            traces.push(parsed);
+            try {
+              callbacks.onTraceComplete(parsed);
+            } catch (err) {
+              // The controller is closed if the SSE client disconnected.
+              // Log once and let the agent loop continue — its work is
+              // done, the trace is in the traces[] list either way.
+              console.error("[claude] onTraceComplete callback threw:", err);
+            }
           }
         }
       }
