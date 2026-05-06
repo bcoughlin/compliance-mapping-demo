@@ -69,7 +69,8 @@ function clearPersisted() {
 type Action =
   | { kind: "reset" }
   | { kind: "hydrate"; state: StreamState }
-  | { kind: "event"; event: RunEvent };
+  | { kind: "event"; event: RunEvent }
+  | { kind: "update_trace"; traceId: string; incident_report: Trace["incident_report"] };
 
 const initial: StreamState = {
   status: "idle",
@@ -84,6 +85,15 @@ function reducer(state: StreamState, action: Action): StreamState {
 
   if (action.kind === "hydrate") {
     return action.state;
+  }
+
+  if (action.kind === "update_trace") {
+    return {
+      ...state,
+      traces: state.traces.map((t) =>
+        t.trace_id === action.traceId ? { ...t, incident_report: action.incident_report } : t,
+      ),
+    };
   }
 
   const e = action.event;
@@ -261,5 +271,9 @@ export function useRunStream() {
     sourceRef.current?.close();
   }, []);
 
-  return { state, start, stop };
+  const updateTrace = useCallback((traceId: string, incident_report: Trace["incident_report"]) => {
+    dispatch({ kind: "update_trace", traceId, incident_report });
+  }, []);
+
+  return { state, start, stop, updateTrace };
 }

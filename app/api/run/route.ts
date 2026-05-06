@@ -144,10 +144,6 @@ export async function GET(_req: NextRequest) {
               console.log(JSON.stringify({ runId, event: "trace_drafted", severity: trace.severity, ms: Date.now() - t2 }));
               send({ type: "trace_drafted", trace, at: nowIso() });
             },
-            onIncidentReport: (traceId, report) => {
-              console.log(JSON.stringify({ runId, event: "incident_report_drafted", ms: Date.now() - t2 }));
-              send({ type: "trace_updated", traceId, incident_report: report, at: nowIso() });
-            },
           },
         );
         t("phase_done:narrate", t2);

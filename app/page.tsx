@@ -12,9 +12,10 @@ import { MermaidView } from "@/app/components/MermaidView";
 import { CodeViewModal } from "@/app/components/CodeViewModal";
 import { ArtifactPanel } from "@/app/components/ArtifactPanel";
 import type { ArtifactView } from "@/app/components/ArtifactPanel";
+import type { IncidentReportDraft } from "@/lib/types";
 
 export default function HomePage() {
-  const { state, start } = useRunStream();
+  const { state, start, updateTrace } = useRunStream();
   const { state: mapState, start: startMap } = useMapStream();
   const [tourOpen, setTourOpen] = useState(true); // every visit
   const [runModalOpen, setRunModalOpen] = useState(false);
@@ -42,6 +43,11 @@ export default function HomePage() {
     setSelectedFile(file);
     setCodeModalOpen(true);
   }, []);
+
+  const handleIncidentReport = useCallback((traceId: string, report: IncidentReportDraft) => {
+    updateTrace(traceId, report);
+    setCenterView("incident_report");
+  }, [updateTrace]);
 
   const hasTraceHistory = state.status !== "idle" || state.phases.length > 0;
   const mapBuilt = mapState.status === "completed" && mapState.themes.length > 0;
@@ -85,10 +91,9 @@ export default function HomePage() {
     setCodeModalOpen(false);
   }, [selectedTraceId]);
 
-  // If the user lands on the incident_report tab but the selected trace
-  // doesn't have one (green / yellow), fall back to the diagram.
+  // If the user lands on the incident_report tab but the trace isn't red, fall back to diagram.
   useEffect(() => {
-    if (centerView === "incident_report" && !selectedTrace?.incident_report) {
+    if (centerView === "incident_report" && selectedTrace && selectedTrace.severity !== "red") {
       setCenterView("diagram");
     }
   }, [centerView, selectedTrace]);
@@ -181,7 +186,7 @@ export default function HomePage() {
               >
                 Diagram
               </ViewButton>
-              {selectedTrace?.incident_report ? (
+              {selectedTrace?.severity === "red" ? (
                 <ViewButton
                   active={centerView === "incident_report"}
                   onClick={() => setCenterView("incident_report")}
@@ -192,9 +197,9 @@ export default function HomePage() {
                 <ViewButton
                   active={false}
                   disabled
-                  title="No incident report — trace was not severity RED"
+                  title="Incident reports are only generated for RED traces"
                 >
-                  No incident
+                  Incident report
                 </ViewButton>
               )}
               <ViewButton
@@ -217,6 +222,7 @@ export default function HomePage() {
                 <ArtifactPanel
                   trace={selectedTrace}
                   view={centerView as ArtifactView}
+                  onIncidentReport={handleIncidentReport}
                 />
               )}
               {centerView !== "diagram" && !selectedTrace && (

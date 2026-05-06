@@ -42,7 +42,6 @@ export interface AgentInputs {
 export interface NarrationCallbacks {
   onTextDelta(text: string): void;
   onTraceComplete(trace: Trace): void;
-  onIncidentReport(traceId: string, report: Trace["incident_report"]): void;
 }
 
 const SYSTEM_PROMPT = `You are the Compliance Mapping Agent for a payroll/payments platform's
@@ -79,14 +78,9 @@ You produce exactly THREE traces for this codebase:
      services/refund_processor.py BEFORE going through tokenize().
      PCI-DSS 3.4.1 violation. Hard finding.
 
-For the RED trace, also call submit_incident_report with the RCA
-document. This is a separate tool call — do not include incident
-report fields inside submit_trace.
-
-IMPORTANT — submit all four tool calls (submit_trace ×3 +
-submit_incident_report ×1) in a SINGLE response turn. Do not wait
-for tool results between traces. Narrate first in plain text, then
-fire all four tool calls back-to-back in the same turn.
+IMPORTANT — submit all three submit_trace tool calls in a SINGLE
+response turn. Do not wait for tool results between traces. Narrate
+first in plain text, then fire all three tool calls back-to-back.
 
 Voice in rationale_markdown AND in your narration: first-person,
 direct, operator-pragmatic. The first-person speaker is the engineer
@@ -235,78 +229,6 @@ const SUBMIT_TRACE_TOOL = {
   },
 };
 
-const SUBMIT_INCIDENT_REPORT_TOOL = {
-  name: "submit_incident_report",
-  description:
-    "Submit the RCA / incident report for the RED trace. Call this after submit_trace for the red trace only.",
-  input_schema: {
-    type: "object" as const,
-    required: [
-      "trace_id",
-      "rca_id",
-      "title",
-      "severity",
-      "status",
-      "short_hash",
-      "date",
-      "summary",
-      "timeline",
-      "five_whys",
-      "control_mapping",
-      "proposed_remediation",
-    ],
-    properties: {
-      trace_id: { type: "string", description: "Must match the trace_id of the RED trace." },
-      rca_id: { type: "string", description: "Format: RCA-{short-hash}-{YYYY-MM-DD}" },
-      title: { type: "string" },
-      severity: { type: "string", enum: ["S1", "S2", "S3", "S4"] },
-      status: { type: "string" },
-      short_hash: { type: "string" },
-      date: { type: "string" },
-      summary: { type: "string" },
-      timeline: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["at", "event"],
-          properties: {
-            at: { type: "string" },
-            event: { type: "string" },
-          },
-        },
-      },
-      five_whys: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["question", "answer"],
-          properties: {
-            question: { type: "string" },
-            answer: { type: "string" },
-          },
-        },
-      },
-      control_mapping: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["framework", "control", "operated_as_designed", "note"],
-          properties: {
-            framework: { type: "string" },
-            control: { type: "string" },
-            operated_as_designed: { type: "string", enum: ["yes", "no", "partial"] },
-            note: { type: "string" },
-          },
-        },
-      },
-      proposed_remediation: {
-        type: "array",
-        items: { type: "string" },
-      },
-    },
-  },
-};
-
 function userMessage(inputs: AgentInputs): string {
   const registryBlob = inputs.registryYaml
     .map((r) => `### registry/${r.filename}\n\n\`\`\`yaml\n${r.contents}\n\`\`\``)
@@ -342,8 +264,7 @@ ${callGraphBlob}
 ---
 
 Narrate briefly in plain text first, then call submit_trace three
-times (GREEN, YELLOW, RED) and submit_incident_report once for RED —
-all four tool calls in this single response turn.`;
+times (GREEN, YELLOW, RED) — all in this single response turn.`;
 }
 
 export async function streamMappingRun(
@@ -365,8 +286,6 @@ export async function streamMappingRun(
     },
   ];
 
-  let hasIncidentReport = false;
-
   // Loop until the model decides it's done (stop_reason !== "tool_use").
   // Cap at 8 turns as a safety net.
   for (let turn = 0; turn < 8; turn++) {
@@ -374,7 +293,7 @@ export async function streamMappingRun(
       model: DEFAULT_MODEL,
       max_tokens: 16000,
       system: SYSTEM_PROMPT,
-      tools: [SUBMIT_TRACE_TOOL, SUBMIT_INCIDENT_REPORT_TOOL],
+      tools: [SUBMIT_TRACE_TOOL],
       messages: conversation,
     });
 
@@ -388,8 +307,7 @@ export async function streamMappingRun(
     for await (const event of stream) {
       if (event.type === "content_block_start") {
         const block = event.content_block;
-        if (block.type === "tool_use" &&
-            (block.name === "submit_trace" || block.name === "submit_incident_report")) {
+        if (block.type === "tool_use" && block.name === "submit_trace") {
           const idx = toolCallsInTurn.push({ id: block.id, name: block.name, jsonAccum: "" }) - 1;
           indexToToolCall.set(event.index, idx);
           callbacks.onTextDelta("\n\n```json\n");
@@ -428,15 +346,6 @@ export async function streamMappingRun(
                 }
               }
             }
-          } else if (tc.name === "submit_incident_report") {
-            try {
-              const parsed = JSON.parse(tc.jsonAccum) as { trace_id: string } & Trace["incident_report"];
-              const { trace_id, ...report } = parsed;
-              hasIncidentReport = true;
-              callbacks.onIncidentReport(trace_id, report as Trace["incident_report"]);
-            } catch (err) {
-              console.error("[claude] failed to parse submit_incident_report JSON:", err);
-            }
           }
         }
       }
@@ -458,7 +367,7 @@ export async function streamMappingRun(
       content: finalMessage.content,
     });
 
-    if (finalMessage.stop_reason !== "tool_use" || (traces.length >= 3 && hasIncidentReport)) {
+    if (finalMessage.stop_reason !== "tool_use" || traces.length >= 3) {
       break;
     }
 
@@ -478,10 +387,8 @@ export async function streamMappingRun(
         type: "tool_result" as const,
         tool_use_id: tc.id,
         content: remaining
-          ? `Trace recorded. Submitted so far: ${submitted}. Still needed: ${remaining}. Narrate and submit the next one.`
-          : !hasIncidentReport
-          ? `All three traces recorded. Now call submit_incident_report for the RED trace.`
-          : `All done. End your turn.`,
+          ? `Trace recorded. Submitted so far: ${submitted}. Still needed: ${remaining}. Submit the remaining traces now.`
+          : `All three traces recorded. End your turn.`,
       })),
     });
   }
