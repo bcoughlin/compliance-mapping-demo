@@ -416,14 +416,19 @@ export async function streamMappingRun(
             );
           }
           if (parsed) {
-            traces.push(parsed);
-            try {
-              callbacks.onTraceComplete(parsed);
-            } catch (err) {
-              // The controller is closed if the SSE client disconnected.
-              // Log once and let the agent loop continue — its work is
-              // done, the trace is in the traces[] list either way.
-              console.error("[claude] onTraceComplete callback threw:", err);
+            // Deduplicate — skip if we already have a trace with this severity.
+            if (traces.some((t) => t.severity === parsed!.severity)) {
+              console.warn(`[claude] duplicate ${parsed.severity} trace ignored`);
+            } else {
+              traces.push(parsed);
+              try {
+                callbacks.onTraceComplete(parsed);
+              } catch (err) {
+                // The controller is closed if the SSE client disconnected.
+                // Log once and let the agent loop continue — its work is
+                // done, the trace is in the traces[] list either way.
+                console.error("[claude] onTraceComplete callback threw:", err);
+              }
             }
           }
         }
@@ -438,7 +443,7 @@ export async function streamMappingRun(
       content: finalMessage.content,
     });
 
-    if (finalMessage.stop_reason !== "tool_use") {
+    if (finalMessage.stop_reason !== "tool_use" || traces.length >= 3) {
       break;
     }
 
@@ -448,13 +453,18 @@ export async function streamMappingRun(
     callbacks.onTextDelta("\n\n———\n\n");
 
     // Reply with tool_result blocks so the model can keep going.
+    const submitted = traces.map((t) => t.severity).join(", ");
+    const remaining = (["green", "yellow", "red"] as const)
+      .filter((s) => !traces.some((t) => t.severity === s))
+      .join(", ");
     conversation.push({
       role: "user",
       content: toolCallsInTurn.map((tc) => ({
         type: "tool_result" as const,
         tool_use_id: tc.id,
-        content:
-          "Trace recorded. Begin your narration for the next trace with a fresh paragraph. Or end your turn if all three are submitted.",
+        content: remaining
+          ? `Trace recorded. Submitted so far: ${submitted}. Still needed: ${remaining}. Narrate and submit the next one.`
+          : `All three traces recorded (${submitted}). End your turn now — do not submit any more traces.`,
       })),
     });
   }
