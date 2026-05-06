@@ -137,9 +137,15 @@ function reducer(state: StreamState, action: Action): StreamState {
     }
 
     case "trace_drafted": {
+      return { ...state, traces: [...state.traces, e.trace] };
+    }
+
+    case "trace_updated": {
       return {
         ...state,
-        traces: [...state.traces, e.trace],
+        traces: state.traces.map((t) =>
+          t.trace_id === e.traceId ? { ...t, incident_report: e.incident_report } : t,
+        ),
       };
     }
 
@@ -228,6 +234,7 @@ export function useRunStream() {
       "phase_completed",
       "narration_token",
       "trace_drafted",
+      "trace_updated",
       "run_completed",
       "run_error",
     ].forEach((type) => {

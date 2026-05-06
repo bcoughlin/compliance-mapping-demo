@@ -42,6 +42,7 @@ export interface AgentInputs {
 export interface NarrationCallbacks {
   onTextDelta(text: string): void;
   onTraceComplete(trace: Trace): void;
+  onIncidentReport(traceId: string, report: Trace["incident_report"]): void;
 }
 
 const SYSTEM_PROMPT = `You are the Compliance Mapping Agent for a payroll/payments platform's
@@ -78,7 +79,9 @@ You produce exactly THREE traces for this codebase:
      services/refund_processor.py BEFORE going through tokenize().
      PCI-DSS 3.4.1 violation. Hard finding.
 
-For the RED trace, additionally produce a draft incident report.
+For the RED trace, after calling submit_trace, call submit_incident_report
+with the RCA document. This is a separate tool call — do not include
+incident report fields inside submit_trace.
 
 Voice in rationale_markdown AND in your between-tool-call narration:
 first-person, direct, operator-pragmatic. The first-person speaker is
@@ -232,71 +235,77 @@ const SUBMIT_TRACE_TOOL = {
           },
         },
       },
-      incident_report: {
-        type: "object",
-        description:
-          "Required for RED traces; omitted for GREEN and YELLOW.",
-        required: [
-          "rca_id",
-          "title",
-          "severity",
-          "status",
-          "short_hash",
-          "date",
-          "summary",
-          "timeline",
-          "five_whys",
-          "control_mapping",
-          "proposed_remediation",
-        ],
-        properties: {
-          rca_id: { type: "string", description: "Format: RCA-{short-hash}-{YYYY-MM-DD}" },
-          title: { type: "string" },
-          severity: { type: "string", enum: ["S1", "S2", "S3", "S4"] },
-          status: { type: "string" },
-          short_hash: { type: "string" },
-          date: { type: "string" },
-          summary: { type: "string" },
-          timeline: {
-            type: "array",
-            items: {
-              type: "object",
-              required: ["at", "event"],
-              properties: {
-                at: { type: "string" },
-                event: { type: "string" },
-              },
-            },
-          },
-          five_whys: {
-            type: "array",
-            items: {
-              type: "object",
-              required: ["question", "answer"],
-              properties: {
-                question: { type: "string" },
-                answer: { type: "string" },
-              },
-            },
-          },
-          control_mapping: {
-            type: "array",
-            items: {
-              type: "object",
-              required: ["framework", "control", "operated_as_designed", "note"],
-              properties: {
-                framework: { type: "string" },
-                control: { type: "string" },
-                operated_as_designed: { type: "string", enum: ["yes", "no", "partial"] },
-                note: { type: "string" },
-              },
-            },
-          },
-          proposed_remediation: {
-            type: "array",
-            items: { type: "string" },
+    },
+  },
+};
+
+const SUBMIT_INCIDENT_REPORT_TOOL = {
+  name: "submit_incident_report",
+  description:
+    "Submit the RCA / incident report for the RED trace. Call this after submit_trace for the red trace only.",
+  input_schema: {
+    type: "object" as const,
+    required: [
+      "trace_id",
+      "rca_id",
+      "title",
+      "severity",
+      "status",
+      "short_hash",
+      "date",
+      "summary",
+      "timeline",
+      "five_whys",
+      "control_mapping",
+      "proposed_remediation",
+    ],
+    properties: {
+      trace_id: { type: "string", description: "Must match the trace_id of the RED trace." },
+      rca_id: { type: "string", description: "Format: RCA-{short-hash}-{YYYY-MM-DD}" },
+      title: { type: "string" },
+      severity: { type: "string", enum: ["S1", "S2", "S3", "S4"] },
+      status: { type: "string" },
+      short_hash: { type: "string" },
+      date: { type: "string" },
+      summary: { type: "string" },
+      timeline: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["at", "event"],
+          properties: {
+            at: { type: "string" },
+            event: { type: "string" },
           },
         },
+      },
+      five_whys: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["question", "answer"],
+          properties: {
+            question: { type: "string" },
+            answer: { type: "string" },
+          },
+        },
+      },
+      control_mapping: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["framework", "control", "operated_as_designed", "note"],
+          properties: {
+            framework: { type: "string" },
+            control: { type: "string" },
+            operated_as_designed: { type: "string", enum: ["yes", "no", "partial"] },
+            note: { type: "string" },
+          },
+        },
+      },
+      proposed_remediation: {
+        type: "array",
+        items: { type: "string" },
       },
     },
   },
@@ -361,6 +370,8 @@ export async function streamMappingRun(
     },
   ];
 
+  let hasIncidentReport = false;
+
   // Loop until the model decides it's done (stop_reason !== "tool_use").
   // Cap at 8 turns as a safety net.
   for (let turn = 0; turn < 8; turn++) {
@@ -368,7 +379,7 @@ export async function streamMappingRun(
       model: DEFAULT_MODEL,
       max_tokens: 16000,
       system: SYSTEM_PROMPT,
-      tools: [SUBMIT_TRACE_TOOL],
+      tools: [SUBMIT_TRACE_TOOL, SUBMIT_INCIDENT_REPORT_TOOL],
       messages: conversation,
     });
 
@@ -382,14 +393,11 @@ export async function streamMappingRun(
     for await (const event of stream) {
       if (event.type === "content_block_start") {
         const block = event.content_block;
-        if (block.type === "tool_use" && block.name === "submit_trace") {
-          const idx =
-            toolCallsInTurn.push({
-              id: block.id,
-              name: block.name,
-              jsonAccum: "",
-            }) - 1;
+        if (block.type === "tool_use" &&
+            (block.name === "submit_trace" || block.name === "submit_incident_report")) {
+          const idx = toolCallsInTurn.push({ id: block.id, name: block.name, jsonAccum: "" }) - 1;
           indexToToolCall.set(event.index, idx);
+          callbacks.onTextDelta("\n\n```json\n");
         }
       } else if (event.type === "content_block_delta") {
         const delta = event.delta;
@@ -399,36 +407,40 @@ export async function streamMappingRun(
           const tcIdx = indexToToolCall.get(event.index);
           if (tcIdx !== undefined) {
             toolCallsInTurn[tcIdx].jsonAccum += delta.partial_json;
+            callbacks.onTextDelta(delta.partial_json);
           }
         }
       } else if (event.type === "content_block_stop") {
         const tcIdx = indexToToolCall.get(event.index);
         if (tcIdx !== undefined) {
+          callbacks.onTextDelta("\n```\n\n");
           const tc = toolCallsInTurn[tcIdx];
-          let parsed: Trace | null = null;
-          try {
-            parsed = JSON.parse(tc.jsonAccum) as Trace;
-          } catch (err) {
-            console.error(
-              "[claude] failed to parse submit_trace JSON:",
-              err,
-              tc.jsonAccum,
-            );
-          }
-          if (parsed) {
-            // Deduplicate — skip if we already have a trace with this severity.
-            if (traces.some((t) => t.severity === parsed!.severity)) {
-              console.warn(`[claude] duplicate ${parsed.severity} trace ignored`);
-            } else {
-              traces.push(parsed);
-              try {
-                callbacks.onTraceComplete(parsed);
-              } catch (err) {
-                // The controller is closed if the SSE client disconnected.
-                // Log once and let the agent loop continue — its work is
-                // done, the trace is in the traces[] list either way.
-                console.error("[claude] onTraceComplete callback threw:", err);
+
+          if (tc.name === "submit_trace") {
+            let parsed: Trace | null = null;
+            try {
+              parsed = JSON.parse(tc.jsonAccum) as Trace;
+            } catch (err) {
+              console.error("[claude] failed to parse submit_trace JSON:", err);
+            }
+            if (parsed) {
+              if (traces.some((t) => t.severity === parsed!.severity)) {
+                console.warn(`[claude] duplicate ${parsed.severity} trace ignored`);
+              } else {
+                traces.push(parsed);
+                try { callbacks.onTraceComplete(parsed); } catch (err) {
+                  console.error("[claude] onTraceComplete callback threw:", err);
+                }
               }
+            }
+          } else if (tc.name === "submit_incident_report") {
+            try {
+              const parsed = JSON.parse(tc.jsonAccum) as { trace_id: string } & Trace["incident_report"];
+              const { trace_id, ...report } = parsed;
+              hasIncidentReport = true;
+              callbacks.onIncidentReport(trace_id, report as Trace["incident_report"]);
+            } catch (err) {
+              console.error("[claude] failed to parse submit_incident_report JSON:", err);
             }
           }
         }
@@ -451,7 +463,7 @@ export async function streamMappingRun(
       content: finalMessage.content,
     });
 
-    if (finalMessage.stop_reason !== "tool_use" || traces.length >= 3) {
+    if (finalMessage.stop_reason !== "tool_use" || (traces.length >= 3 && hasIncidentReport)) {
       break;
     }
 
@@ -472,7 +484,9 @@ export async function streamMappingRun(
         tool_use_id: tc.id,
         content: remaining
           ? `Trace recorded. Submitted so far: ${submitted}. Still needed: ${remaining}. Narrate and submit the next one.`
-          : `All three traces recorded (${submitted}). End your turn now — do not submit any more traces.`,
+          : !hasIncidentReport
+          ? `All three traces recorded. Now call submit_incident_report for the RED trace.`
+          : `All done. End your turn.`,
       })),
     });
   }

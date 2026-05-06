@@ -155,6 +155,12 @@ export type RunEvent =
       at: string;
     }
   | {
+      type: "trace_updated";
+      traceId: string;
+      incident_report: Trace["incident_report"];
+      at: string;
+    }
+  | {
       type: "theme_summarized";
       summary: ThemeSummary;
       at: string;
