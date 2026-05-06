@@ -182,30 +182,34 @@ export function MermaidView({
           <ZoomButton onClick={resetView} label="Reset view">⟲</ZoomButton>
         </div>
       </div>
-      <div className="flex-1 relative bg-stone-50/50 overflow-hidden">
-        {error ? (
-          <pre className="text-xs text-red-700 whitespace-pre-wrap p-4">{error}</pre>
-        ) : (
-          <div
-            ref={containerRef}
-            className="mermaid-render absolute inset-0"
-          />
+      <div className="flex-1 min-h-0 grid" style={{ gridTemplateColumns: trace.rationale_markdown ? "60fr 40fr" : "1fr" }}>
+        {/* Graph (60%) */}
+        <div className="relative bg-stone-50/50 overflow-hidden border-r border-stone-200">
+          {error ? (
+            <pre className="text-xs text-red-700 whitespace-pre-wrap p-4">
+              {error}
+            </pre>
+          ) : (
+            <div ref={containerRef} className="mermaid-render absolute inset-0" />
+          )}
+          <div className="absolute bottom-2 right-3 text-[10px] uppercase tracking-wider text-stone-400 pointer-events-none select-none">
+            drag to pan · use +/− to zoom · click a node to view code
+          </div>
+        </div>
+
+        {/* Rationale (40%) */}
+        {trace.rationale_markdown && (
+          <div className="bg-white overflow-y-auto px-4 py-3">
+            <p className="text-[11px] uppercase tracking-wider text-stone-500 mb-2 font-medium">
+              Agent rationale
+            </p>
+            <Markdown
+              text={trace.rationale_markdown}
+              className="text-sm text-stone-800 leading-relaxed"
+            />
+          </div>
         )}
-        <div className="absolute bottom-2 right-3 text-[10px] uppercase tracking-wider text-stone-400 pointer-events-none select-none">
-          drag to pan · use +/− to zoom · click a node to view code
-        </div>
       </div>
-      {trace.rationale_markdown && (
-        <div className="border-t border-stone-200 px-4 py-3 bg-white max-h-44 overflow-y-auto">
-          <p className="text-[11px] uppercase tracking-wider text-stone-500 mb-1.5 font-medium">
-            Agent rationale
-          </p>
-          <Markdown
-            text={trace.rationale_markdown}
-            className="text-sm text-stone-800 leading-relaxed"
-          />
-        </div>
-      )}
     </div>
   );
 }
