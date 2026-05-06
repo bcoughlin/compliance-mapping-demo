@@ -169,8 +169,7 @@ function PhaseRow({ phase }: { phase: PhaseState }) {
               ref={liveRef}
               className="text-sm text-stone-800 leading-relaxed max-h-72 overflow-y-auto py-1"
             >
-              <Markdown text={phase.liveText} />
-              {isActive && <span className={cursorClass} aria-hidden />}
+              <Markdown text={phase.liveText} cursor={isActive ? <span className={cursorClass} aria-hidden /> : undefined} />
             </div>
           )}
 

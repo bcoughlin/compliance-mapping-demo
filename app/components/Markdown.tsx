@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 
 /**
  * Tiny markdown renderer for the agent's streaming narration.
@@ -149,21 +149,64 @@ function renderInline(text: string): React.ReactNode {
   });
 }
 
+function FencedBlock({
+  content,
+  isClosed,
+  children,
+}: {
+  content: string;
+  isClosed: boolean;
+  children?: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(!isClosed);
+
+  // Auto-collapse when the closing fence arrives.
+  const prevClosed = React.useRef(isClosed);
+  if (isClosed && !prevClosed.current) {
+    prevClosed.current = true;
+    // Defer so render isn't mutated mid-cycle.
+    setTimeout(() => setExpanded(false), 0);
+  }
+
+  if (!isClosed || expanded) {
+    return (
+      <pre className="mb-3 last:mb-0 bg-stone-100 border border-stone-200 rounded-md px-3 py-2 text-[0.78em] font-mono text-stone-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+        {content}{children}
+      </pre>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setExpanded(true)}
+      className="mb-3 last:mb-0 w-full text-left bg-stone-100 border border-stone-200 rounded-md px-3 py-1.5 text-[0.78em] font-mono text-stone-500 hover:bg-stone-200 hover:text-stone-700 transition-colors"
+    >
+      {"{ artifact } "}
+      <span className="text-stone-400 font-sans not-italic">— click to expand</span>
+    </button>
+  );
+}
+
 interface MarkdownProps {
   text: string;
   className?: string;
+  cursor?: React.ReactNode;
 }
 
-export function Markdown({ text, className }: MarkdownProps) {
+export function Markdown({ text, className, cursor }: MarkdownProps) {
   if (!text) return null;
 
   const paragraphs = text.split(/\n{2,}/);
 
+  const filtered = paragraphs.filter((p) => p.trim());
+  const lastIdx = filtered.length - 1;
+
   return (
     <div className={className}>
-      {paragraphs.map((para, pi) => {
+      {filtered.map((para, pi) => {
         const trimmed = para.trim();
-        if (!trimmed) return null;
+        const isLast = pi === lastIdx;
 
         // Fenced code block — starts with ```, with or without closing fence
         // (the closing fence may not have arrived yet during streaming).
@@ -172,16 +215,14 @@ export function Markdown({ text, className }: MarkdownProps) {
           const afterFence =
             firstNewline > -1 ? trimmed.slice(firstNewline + 1) : "";
           const closingIdx = afterFence.lastIndexOf("\n```");
+          const isClosed = closingIdx > -1;
           const content =
-            closingIdx > -1 ? afterFence.slice(0, closingIdx) : afterFence;
+            isClosed ? afterFence.slice(0, closingIdx) : afterFence;
 
           return (
-            <pre
-              key={pi}
-              className="mb-3 last:mb-0 bg-stone-100 border border-stone-200 rounded-md px-3 py-2 text-[0.78em] font-mono text-stone-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed"
-            >
-              {content}
-            </pre>
+            <FencedBlock key={pi} content={content} isClosed={isClosed}>
+              {isLast && cursor}
+            </FencedBlock>
           );
         }
 
@@ -194,7 +235,10 @@ export function Markdown({ text, className }: MarkdownProps) {
           return (
             <ul key={pi} className="list-disc pl-5 mb-3 last:mb-0 space-y-1">
               {lines.map((l, li) => (
-                <li key={li}>{renderInline(l.replace(/^[-*]\s+/, ""))}</li>
+                <li key={li}>
+                  {renderInline(l.replace(/^[-*]\s+/, ""))}
+                  {isLast && li === lines.length - 1 && cursor}
+                </li>
               ))}
             </ul>
           );
@@ -202,7 +246,7 @@ export function Markdown({ text, className }: MarkdownProps) {
 
         return (
           <p key={pi} className="mb-3 last:mb-0">
-            {renderInline(para)}
+            {renderInline(para)}{isLast && cursor}
           </p>
         );
       })}
