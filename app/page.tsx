@@ -11,6 +11,7 @@ import { TraceList } from "@/app/components/TraceList";
 import { MermaidView } from "@/app/components/MermaidView";
 import { CodeViewModal } from "@/app/components/CodeViewModal";
 import { ArtifactPanel } from "@/app/components/ArtifactPanel";
+import type { ArtifactView } from "@/app/components/ArtifactPanel";
 
 export default function HomePage() {
   const { state, start } = useRunStream();
@@ -21,7 +22,8 @@ export default function HomePage() {
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
-  const [centerTab, setCenterTab] = useState<"diagram" | "artifact">("diagram");
+  type CenterView = "diagram" | "incident_report" | "audit_record";
+  const [centerView, setCenterView] = useState<CenterView>("diagram");
 
   const handleBuildMap = useCallback(() => {
     startMap();
@@ -82,6 +84,14 @@ export default function HomePage() {
     setSelectedFile(null);
     setCodeModalOpen(false);
   }, [selectedTraceId]);
+
+  // If the user lands on the incident_report tab but the selected trace
+  // doesn't have one (green / yellow), fall back to the diagram.
+  useEffect(() => {
+    if (centerView === "incident_report" && !selectedTrace?.incident_report) {
+      setCenterView("diagram");
+    }
+  }, [centerView, selectedTrace]);
 
   return (
     <div className="h-screen flex flex-col bg-stone-50 text-stone-900">
@@ -162,33 +172,46 @@ export default function HomePage() {
             />
           </aside>
 
-          {/* Right: diagram or artifact, full width */}
+          {/* Right: unified view tabs — Diagram, Incident report (red only), Audit record */}
           <div className="col-span-9 bg-white overflow-hidden flex flex-col min-h-0">
             <div className="border-b border-stone-200 flex">
               <CenterTab
-                active={centerTab === "diagram"}
-                onClick={() => setCenterTab("diagram")}
+                active={centerView === "diagram"}
+                onClick={() => setCenterView("diagram")}
               >
                 Diagram
               </CenterTab>
+              {selectedTrace?.incident_report && (
+                <CenterTab
+                  active={centerView === "incident_report"}
+                  onClick={() => setCenterView("incident_report")}
+                >
+                  Incident report
+                </CenterTab>
+              )}
               <CenterTab
-                active={centerTab === "artifact"}
-                onClick={() => setCenterTab("artifact")}
+                active={centerView === "audit_record"}
+                onClick={() => setCenterView("audit_record")}
                 disabled={!selectedTrace}
               >
-                Artifact
+                Audit record (JSON)
               </CenterTab>
             </div>
             <div className="flex-1 min-h-0">
-              {centerTab === "diagram" ? (
+              {centerView === "diagram" && (
                 <MermaidView
                   trace={selectedTrace}
                   selectedFile={selectedFile ?? defaultCodeFile}
                   onNodeFile={handleNodeFile}
                 />
-              ) : selectedTrace ? (
-                <ArtifactPanel trace={selectedTrace} />
-              ) : (
+              )}
+              {centerView !== "diagram" && selectedTrace && (
+                <ArtifactPanel
+                  trace={selectedTrace}
+                  view={centerView as ArtifactView}
+                />
+              )}
+              {centerView !== "diagram" && !selectedTrace && (
                 <div className="h-full flex items-center justify-center text-stone-400 text-sm">
                   Select a trace to view its artifact.
                 </div>
