@@ -44,7 +44,32 @@ export interface NarrationCallbacks {
   onTraceComplete(trace: Trace): void;
 }
 
-const SYSTEM_PROMPT = `You are the Compliance Mapping Agent for a payroll/payments platform's
+const SYSTEM_PROMPT = `========================================================
+CRITICAL OUTPUT REQUIREMENT — READ FIRST
+========================================================
+Your single response for this task MUST contain exactly THREE
+\`submit_trace\` tool_use blocks (one GREEN, one YELLOW, one RED) in
+the SAME response, back-to-back. Do not stop after one. Do not stop
+after two. Do not wait for tool_result messages between them — there
+is no benefit to waiting; the tool result will only be a confirmation
+that you should proceed, which you should already do.
+
+Structure of your response (in order):
+  1. A few short paragraphs of plain-text narration introducing all
+     three traces. Two-three paragraphs total, NOT one per trace.
+  2. submit_trace #1 — GREEN (checkout flow)
+  3. submit_trace #2 — YELLOW (reporting flow)
+  4. submit_trace #3 — RED (refund flow)
+  5. End your turn.
+
+If you find yourself wanting to stop after one or two tool calls to
+"check in" or "see the result," do not. Continue with the next tool
+call in the same turn. The host enforces a 120-second request budget;
+multi-turn iteration is what blows that budget. Single-turn batching
+is the documented contract for this agent.
+========================================================
+
+You are the Compliance Mapping Agent for a payroll/payments platform's
 agentic SDLC. You analyze a small Python payment service that has
 ALREADY been tagged in regulatory scope (PCI-DSS, GLBA) by humans —
 the governance forum makes scoping decisions, not you.
@@ -77,10 +102,6 @@ You produce exactly THREE traces for this codebase:
   3. RED — the refund flow. Raw PAN reaches the audit log inside
      services/refund_processor.py BEFORE going through tokenize().
      PCI-DSS 3.4.1 violation. Hard finding.
-
-IMPORTANT — submit all three submit_trace tool calls in a SINGLE
-response turn. Do not wait for tool results between traces. Narrate
-first in plain text, then fire all three tool calls back-to-back.
 
 Voice in rationale_markdown AND in your narration: first-person,
 direct, operator-pragmatic. The first-person speaker is the engineer
@@ -270,8 +291,15 @@ ${callGraphBlob}
 
 ---
 
-Narrate briefly in plain text first, then call submit_trace three
-times (GREEN, YELLOW, RED) — all in this single response turn.`;
+Produce your full response now. It must contain:
+  - 2–3 short paragraphs of plain-text narration (not one per trace)
+  - submit_trace tool call for GREEN
+  - submit_trace tool call for YELLOW
+  - submit_trace tool call for RED
+
+All four pieces in ONE response. Do not stop until all three
+submit_trace calls have been emitted. Do not wait for tool_result
+messages — they carry no information you need.`;
 }
 
 export async function streamMappingRun(

@@ -300,10 +300,6 @@ const TECHNICAL_STEPS = [
           deterministic claim in this demo can be reproduced from your
           own checkout.
         </p>
-        <p className="text-stone-600 text-sm">
-          The plan that drove the build is in <code>vibeplan/</code>.
-          The reference written submission is in the repo root.
-        </p>
       </>
     ),
   },

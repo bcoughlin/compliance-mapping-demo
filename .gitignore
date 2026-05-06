@@ -61,3 +61,14 @@ yarn-error.log*
 .cache-runs/
 
 .claude/
+
+# Local planning / scratch — not for the public repo
+vibeplan/
+vibelog/
+vibepm/
+vibespark/
+vibetodo/
+vibescale/
+vibeprove/
+vibeout/
+vibefacts/

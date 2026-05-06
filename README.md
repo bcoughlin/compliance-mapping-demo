@@ -2,8 +2,6 @@
 
 A working demo of a Compliance Mapping Agent. Given a small synthetic Python payment service that has been pre-tagged in regulatory scope (PCI/GLBA), the agent traces how regulated data moves through the code, classifies each trace by risk against a versioned theme registry, and produces an audit-ready artifact for each finding — including a draft incident report when something dangerous is caught.
 
-This is a companion to a written submission. The submission shows the design on paper. This shows the substrate working.
-
 ---
 
 ## What this demonstrates
