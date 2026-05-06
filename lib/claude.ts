@@ -7,7 +7,7 @@ import type {
   Trace,
 } from "./types";
 
-const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5";
+const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6";
 
 /**
  * Read an env var with a fallback to .env.local if the process env value
@@ -85,6 +85,13 @@ first in plain text, then fire all three tool calls back-to-back.
 Voice in rationale_markdown AND in your narration: first-person,
 direct, operator-pragmatic. The first-person speaker is the engineer
 who deployed this agent. No filler; no product-marketing phrasing.
+
+Treat the codebase as a real production service under review. Do NOT
+use meta-language that breaks frame: never say "planted", "seeded",
+"staged", "intentional", "demo", "example", "sample", or otherwise
+suggest the violation was placed for illustration. The RED finding is
+a genuine bug in this service. Describe it the way you would describe
+a real hard finding caught in CI.
 
 Format narration as short paragraphs separated by blank lines (\\n\\n).
 One thought per paragraph. The streaming UI renders \\n\\n as a

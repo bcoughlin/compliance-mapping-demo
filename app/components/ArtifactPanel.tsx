@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { Trace, IncidentReportDraft } from "@/lib/types";
 import { IncidentReportPanel } from "@/app/components/IncidentReportPanel";
 
@@ -15,10 +15,20 @@ interface ArtifactPanelProps {
 export function ArtifactPanel({ trace, view, onIncidentReport }: ArtifactPanelProps) {
   const [rcaStatus, setRcaStatus] = useState<"idle" | "generating" | "error">("idle");
   const [rcaError, setRcaError] = useState<string | null>(null);
+  const [rcaStream, setRcaStream] = useState("");
+  const streamRef = useRef<HTMLPreElement>(null);
+
+  // Autoscroll the streaming pre to bottom as tokens arrive.
+  useEffect(() => {
+    if (rcaStatus === "generating" && streamRef.current) {
+      streamRef.current.scrollTop = streamRef.current.scrollHeight;
+    }
+  }, [rcaStream, rcaStatus]);
 
   const generateRca = useCallback(async () => {
     setRcaStatus("generating");
     setRcaError(null);
+    setRcaStream("");
     try {
       const res = await fetch("/api/incident-report", {
         method: "POST",
@@ -42,13 +52,15 @@ export function ArtifactPanel({ trace, view, onIncidentReport }: ArtifactPanelPr
           const raw = line.slice(6).trim();
           if (!raw) continue;
           try {
-            const evt = JSON.parse(raw) as { type: string; report?: IncidentReportDraft; message?: string };
-            if (evt.type === "rca_completed" && evt.report) {
+            const evt = JSON.parse(raw) as { type: string; text?: string; report?: IncidentReportDraft; message?: string };
+            if (evt.type === "rca_token" && evt.text) {
+              setRcaStream((prev) => prev + evt.text);
+            } else if (evt.type === "rca_completed" && evt.report) {
               onIncidentReport(trace.trace_id, evt.report);
               setRcaStatus("idle");
+              setRcaStream("");
               return;
-            }
-            if (evt.type === "rca_error") {
+            } else if (evt.type === "rca_error") {
               throw new Error(evt.message ?? "RCA generation failed");
             }
           } catch (parseErr) {
@@ -71,7 +83,7 @@ export function ArtifactPanel({ trace, view, onIncidentReport }: ArtifactPanelPr
             {trace.incident_report ? (
               <IncidentReportPanel report={trace.incident_report} />
             ) : trace.severity === "red" ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="flex flex-col items-center py-10 gap-4">
                 <p className="text-sm text-stone-500">
                   No incident report yet for this trace.
                 </p>
@@ -82,7 +94,7 @@ export function ArtifactPanel({ trace, view, onIncidentReport }: ArtifactPanelPr
                   type="button"
                   onClick={generateRca}
                   disabled={rcaStatus === "generating"}
-                  className="px-4 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600 disabled:opacity-100 disabled:cursor-wait flex items-center gap-2 shadow-sm"
                 >
                   {rcaStatus === "generating" ? (
                     <>
@@ -93,6 +105,25 @@ export function ArtifactPanel({ trace, view, onIncidentReport }: ArtifactPanelPr
                     "Generate RCA"
                   )}
                 </button>
+                {rcaStatus === "generating" && (
+                  <div className="w-full max-w-3xl bg-stone-900 rounded-md overflow-hidden border border-stone-800">
+                    <div className="px-3 py-1.5 border-b border-stone-800 flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wider text-stone-400 font-medium">
+                        submit_incident_report · streaming
+                      </span>
+                      <span className="text-[10px] text-stone-500 font-mono">
+                        {rcaStream.length} chars
+                      </span>
+                    </div>
+                    <pre
+                      ref={streamRef}
+                      className="font-mono text-[11px] leading-relaxed text-stone-100 px-3 py-2 max-h-80 overflow-auto whitespace-pre-wrap break-words"
+                    >
+                      {rcaStream}
+                      <span className="inline-block w-1.5 h-3 bg-emerald-400 ml-0.5 align-middle animate-pulse" />
+                    </pre>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center justify-center py-16">

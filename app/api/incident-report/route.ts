@@ -73,7 +73,7 @@ Write a concise, first-person RCA document (operator voice — direct, no filler
 rca_id format: RCA-{short_hash}-{YYYY-MM-DD}. Today: ${new Date().toISOString().slice(0,10)}.`;
 
         const apiStream = client.messages.stream({
-          model: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5",
+          model: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
           max_tokens: 4000,
           tools: [TOOL],
           messages: [{ role: "user", content: prompt }],

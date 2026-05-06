@@ -30,16 +30,29 @@ const COMPLIANCE_STEPS = [
             The agent applies the map to a small Python payment service
             and produces three <strong>trace artifacts</strong> —
             green / yellow / red — each citing the exact theme record
-            and regulatory requirement that anchors it. Red traces also
-            generate a draft incident report.
+            and regulatory requirement that anchors it.
           </li>
         </ol>
         <p className="mb-3">
-          Each trace has a <strong>Diagram</strong> view (data flow as a
-          Mermaid chart, click any node to see the code) and an{" "}
-          <strong>Artifact</strong> view (the audit-ready JSON record an
-          examiner would consume). The tabs are above the diagram pane.
+          Each trace has three views, switchable via tabs above the
+          pane:
         </p>
+        <ul className="list-disc pl-5 space-y-1.5 mb-3 text-sm">
+          <li>
+            <strong>Diagram</strong> — data flow as a Mermaid chart;
+            click any node to see the code.
+          </li>
+          <li>
+            <strong>Incident report</strong> — only for red traces.
+            Click <em>Generate RCA</em> to have the agent draft the
+            root-cause analysis on demand; you can watch the JSON
+            stream in as it&apos;s built.
+          </li>
+          <li>
+            <strong>Audit record (JSON)</strong> — the audit-ready
+            v7-shaped record an examiner would consume.
+          </li>
+        </ul>
         <p className="text-stone-600 text-sm">
           The next pages walk through the regulatory thinking that
           produced the registry. If you want the engineering view
@@ -181,10 +194,11 @@ const TECHNICAL_STEPS = [
     body: (
       <>
         <p className="mb-3">
-          Claude Opus 4.7 receives the registry, the codebase contents,
-          the Semgrep findings, and the call graph. It produces three
-          trace artifacts via a <code>submit_trace</code> tool, narrating
-          its reasoning in plain text between calls.
+          Claude Sonnet 4.6 receives the registry, the codebase
+          contents, the Semgrep findings, and the call graph. It
+          produces three trace artifacts via a <code>submit_trace</code>{" "}
+          tool, narrating its reasoning in plain text alongside the
+          tool calls.
         </p>
         <p className="mb-3">
           The model does NOT decide regulatory scope. The registry is
@@ -194,9 +208,11 @@ const TECHNICAL_STEPS = [
           audit-ready output.
         </p>
         <p className="text-stone-600 text-sm">
-          Conversation runs as a multi-turn loop — model submits a
-          trace, server replies with a tool_result, model submits the
-          next, until all three are in.
+          The model batches all three <code>submit_trace</code> tool
+          calls into a single response turn — narration first, then the
+          tool calls back-to-back — to stay well inside the host&apos;s
+          120-second request budget. The RCA for the red trace runs as a
+          separate on-demand call (see step 4).
         </p>
       </>
     ),
@@ -230,11 +246,11 @@ const TECHNICAL_STEPS = [
     ),
   },
   {
-    title: "4. Two endpoints, two artifacts",
+    title: "4. Three endpoints, three artifacts",
     body: (
       <>
         <p className="mb-3">
-          The backend exposes two SSE routes you can watch live:
+          The backend exposes three SSE routes you can watch live:
         </p>
         <ul className="list-disc pl-5 space-y-1.5 mb-3 text-sm">
           <li>
@@ -244,16 +260,24 @@ const TECHNICAL_STEPS = [
           </li>
           <li>
             <code>/api/run</code> — runs Semgrep + the AST pass + the
-            multi-turn Claude loop, emits <code>trace_drafted</code>{" "}
-            events with the full v7-shaped <code>compliance_record</code>{" "}
-            (and a draft <code>incident_report</code> for red traces).
+            single-turn Claude tool-calling pass, emits{" "}
+            <code>trace_drafted</code> events with the full v7-shaped{" "}
+            <code>compliance_record</code> for each of the three traces.
+          </li>
+          <li>
+            <code>/api/incident-report</code> — fired on demand from the
+            <em> Generate RCA</em> button on a red trace. Streams{" "}
+            <code>rca_token</code> events as the JSON builds, then a
+            final <code>rca_completed</code> event with the full draft
+            incident report. Split out from <code>/api/run</code> so the
+            main scan stays well under the 120s request budget.
           </li>
         </ul>
         <p className="mb-3">
-          Both produce structured JSON artifacts you can inspect in the
-          Artifact tab of each trace. That JSON is the same source of
-          truth a compliance auditor would consume — the visual
-          diagrams and the natural-language rationale are renders of it.
+          All three produce structured JSON artifacts you can inspect
+          in-app. That JSON is the same source of truth a compliance
+          auditor would consume — the visual diagrams and the
+          natural-language rationale are renders of it.
         </p>
       </>
     ),
