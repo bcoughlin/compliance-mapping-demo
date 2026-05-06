@@ -165,6 +165,26 @@ export function Markdown({ text, className }: MarkdownProps) {
         const trimmed = para.trim();
         if (!trimmed) return null;
 
+        // Fenced code block — starts with ```, with or without closing fence
+        // (the closing fence may not have arrived yet during streaming).
+        if (trimmed.startsWith("```")) {
+          const firstNewline = trimmed.indexOf("\n");
+          const afterFence =
+            firstNewline > -1 ? trimmed.slice(firstNewline + 1) : "";
+          const closingIdx = afterFence.lastIndexOf("\n```");
+          const content =
+            closingIdx > -1 ? afterFence.slice(0, closingIdx) : afterFence;
+
+          return (
+            <pre
+              key={pi}
+              className="mb-3 last:mb-0 bg-stone-100 border border-stone-200 rounded-md px-3 py-2 text-[0.78em] font-mono text-stone-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed"
+            >
+              {content}
+            </pre>
+          );
+        }
+
         // Bullet block — every line starts with "- ".
         const lines = trimmed.split("\n");
         const allBullets =

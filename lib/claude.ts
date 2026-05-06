@@ -390,6 +390,9 @@ export async function streamMappingRun(
               jsonAccum: "",
             }) - 1;
           indexToToolCall.set(event.index, idx);
+          // Open a fenced code block in the narration so the user can watch
+          // the artifact being assembled in real time.
+          callbacks.onTextDelta("\n\n```json\n");
         }
       } else if (event.type === "content_block_delta") {
         const delta = event.delta;
@@ -399,11 +402,14 @@ export async function streamMappingRun(
           const tcIdx = indexToToolCall.get(event.index);
           if (tcIdx !== undefined) {
             toolCallsInTurn[tcIdx].jsonAccum += delta.partial_json;
+            callbacks.onTextDelta(delta.partial_json);
           }
         }
       } else if (event.type === "content_block_stop") {
         const tcIdx = indexToToolCall.get(event.index);
         if (tcIdx !== undefined) {
+          // Close the fenced code block.
+          callbacks.onTextDelta("\n```\n\n");
           const tc = toolCallsInTurn[tcIdx];
           let parsed: Trace | null = null;
           try {
