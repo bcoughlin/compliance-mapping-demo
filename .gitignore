@@ -59,3 +59,5 @@ yarn-error.log*
 
 # Local fixtures from runs (kept fresh per session)
 .cache-runs/
+
+.claude/

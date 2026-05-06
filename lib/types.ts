@@ -96,7 +96,7 @@ export interface Trace {
   mermaid: string;
   rationale_markdown: string;
   line_annotations: LineAnnotation[];
-  artifact: ComplianceArtifact;
+  compliance_record: ComplianceArtifact;
   incident_report?: IncidentReportDraft;
 }
 

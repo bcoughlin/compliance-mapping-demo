@@ -101,7 +101,11 @@ export async function GET(_req: NextRequest) {
           phase: "narrate",
           summary: `Drafted ${result.traces.length} trace${result.traces.length === 1 ? "" : "s"}`,
           detail: result.traces
-            .map((t) => `${t.severity.toUpperCase()} — ${t.label}`)
+            .map((t) => {
+              const sev = (t?.severity ?? "?").toString().toUpperCase();
+              const label = t?.label ?? "(unlabeled)";
+              return `${sev} — ${label}`;
+            })
             .join("\n"),
           at: nowIso(),
         });

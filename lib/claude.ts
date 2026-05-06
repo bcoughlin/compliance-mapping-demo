@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import type {
   SemgrepFinding,
@@ -6,6 +8,29 @@ import type {
 } from "./types";
 
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-4-7";
+
+/**
+ * Read an env var with a fallback to .env.local if the process env value
+ * is empty. Necessary because Next.js's env loader does not override
+ * variables already set in process.env (even when set to empty string),
+ * so a parent shell with `ANTHROPIC_API_KEY=""` exported masks the
+ * value in our local file.
+ */
+function readEnvWithFallback(name: string): string {
+  const fromEnv = process.env[name];
+  if (fromEnv && fromEnv.length > 0) return fromEnv;
+
+  try {
+    const filePath = path.join(process.cwd(), ".env.local");
+    const contents = fs.readFileSync(filePath, "utf-8");
+    const match = contents.match(new RegExp(`^${name}=(.+)$`, "m"));
+    if (match) return match[1].trim();
+  } catch {
+    // .env.local missing → fine, return empty
+  }
+
+  return "";
+}
 
 export interface AgentInputs {
   registryYaml: { filename: string; contents: string }[];
@@ -95,7 +120,7 @@ const SUBMIT_TRACE_TOOL = {
       "mermaid",
       "rationale_markdown",
       "line_annotations",
-      "artifact",
+      "compliance_record",
     ],
     properties: {
       trace_id: { type: "string" },
@@ -140,8 +165,10 @@ const SUBMIT_TRACE_TOOL = {
           },
         },
       },
-      artifact: {
+      compliance_record: {
         type: "object",
+        description:
+          "The full v7-schema audit artifact for this trace. This is the ONLY field that contains the formal record; do not nest other top-level trace fields inside it.",
         required: [
           "artifact_version",
           "trace_id",
@@ -311,60 +338,98 @@ export async function streamMappingRun(
   inputs: AgentInputs,
   callbacks: NarrationCallbacks,
 ): Promise<{ traces: Trace[] }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = readEnvWithFallback("ANTHROPIC_API_KEY");
   if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is not set");
+    throw new Error("ANTHROPIC_API_KEY is not set (checked process.env and .env.local)");
   }
 
   const client = new Anthropic({ apiKey });
 
-  const stream = client.messages.stream({
-    model: DEFAULT_MODEL,
-    max_tokens: 16000,
-    system: SYSTEM_PROMPT,
-    tools: [SUBMIT_TRACE_TOOL],
-    messages: [
-      {
-        role: "user",
-        content: userMessage(inputs),
-      },
-    ],
-  });
-
   const traces: Trace[] = [];
-  const partialToolCalls = new Map<number, { name: string; jsonAccum: string }>();
+  const conversation: Anthropic.Messages.MessageParam[] = [
+    {
+      role: "user",
+      content: userMessage(inputs),
+    },
+  ];
 
-  for await (const event of stream) {
-    if (event.type === "content_block_start") {
-      const block = event.content_block;
-      if (block.type === "tool_use" && block.name === "submit_trace") {
-        partialToolCalls.set(event.index, { name: block.name, jsonAccum: "" });
-      }
-    } else if (event.type === "content_block_delta") {
-      const delta = event.delta;
-      if (delta.type === "text_delta") {
-        callbacks.onTextDelta(delta.text);
-      } else if (delta.type === "input_json_delta") {
-        const slot = partialToolCalls.get(event.index);
-        if (slot) {
-          slot.jsonAccum += delta.partial_json;
+  // Loop until the model decides it's done (stop_reason !== "tool_use").
+  // Cap at 8 turns as a safety net.
+  for (let turn = 0; turn < 8; turn++) {
+    const stream = client.messages.stream({
+      model: DEFAULT_MODEL,
+      max_tokens: 16000,
+      system: SYSTEM_PROMPT,
+      tools: [SUBMIT_TRACE_TOOL],
+      messages: conversation,
+    });
+
+    const toolCallsInTurn: Array<{
+      id: string;
+      name: string;
+      jsonAccum: string;
+    }> = [];
+    const indexToToolCall = new Map<number, number>();
+
+    for await (const event of stream) {
+      if (event.type === "content_block_start") {
+        const block = event.content_block;
+        if (block.type === "tool_use" && block.name === "submit_trace") {
+          const idx =
+            toolCallsInTurn.push({
+              id: block.id,
+              name: block.name,
+              jsonAccum: "",
+            }) - 1;
+          indexToToolCall.set(event.index, idx);
         }
-      }
-    } else if (event.type === "content_block_stop") {
-      const slot = partialToolCalls.get(event.index);
-      if (slot) {
-        try {
-          const parsed = JSON.parse(slot.jsonAccum) as Trace;
-          traces.push(parsed);
-          callbacks.onTraceComplete(parsed);
-        } catch (err) {
-          console.error("failed to parse tool call json", err, slot.jsonAccum);
+      } else if (event.type === "content_block_delta") {
+        const delta = event.delta;
+        if (delta.type === "text_delta") {
+          callbacks.onTextDelta(delta.text);
+        } else if (delta.type === "input_json_delta") {
+          const tcIdx = indexToToolCall.get(event.index);
+          if (tcIdx !== undefined) {
+            toolCallsInTurn[tcIdx].jsonAccum += delta.partial_json;
+          }
         }
-        partialToolCalls.delete(event.index);
+      } else if (event.type === "content_block_stop") {
+        const tcIdx = indexToToolCall.get(event.index);
+        if (tcIdx !== undefined) {
+          const tc = toolCallsInTurn[tcIdx];
+          try {
+            const parsed = JSON.parse(tc.jsonAccum) as Trace;
+            traces.push(parsed);
+            callbacks.onTraceComplete(parsed);
+          } catch (err) {
+            console.error("failed to parse tool call json", err, tc.jsonAccum);
+          }
+        }
       }
     }
+
+    const finalMessage = await stream.finalMessage();
+
+    // Echo the assistant's full reply (text + tool_use) back into the conversation.
+    conversation.push({
+      role: "assistant",
+      content: finalMessage.content,
+    });
+
+    if (finalMessage.stop_reason !== "tool_use") {
+      break;
+    }
+
+    // Reply with tool_result blocks so the model can keep going.
+    conversation.push({
+      role: "user",
+      content: toolCallsInTurn.map((tc) => ({
+        type: "tool_result" as const,
+        tool_use_id: tc.id,
+        content: "Trace recorded. Continue with the next trace, or end your turn if all three are submitted.",
+      })),
+    });
   }
 
-  await stream.finalMessage();
   return { traces };
 }
