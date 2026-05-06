@@ -9,6 +9,46 @@ interface IntroTourProps {
 
 const COMPLIANCE_STEPS = [
   {
+    title: "Instructions",
+    body: (
+      <>
+        <p className="mb-3">
+          This is a working demo of a Compliance Mapping Agent. Two steps,
+          two buttons in the top-right corner:
+        </p>
+        <ol className="list-decimal pl-5 space-y-2 mb-3">
+          <li>
+            <strong>Build map.</strong> The agent reads the regulatory
+            theme registry (3 themes — PCI cardholder data, GLBA personal
+            financial data, PCI cryptographic keys) and writes a
+            plain-English summary per theme. Result: the{" "}
+            <strong>map artifact</strong>, viewable any time via{" "}
+            <em>View map</em>.
+          </li>
+          <li>
+            <strong>Run trace.</strong> Enabled once the map is built.
+            The agent applies the map to a small Python payment service
+            and produces three <strong>trace artifacts</strong> —
+            green / yellow / red — each citing the exact theme record
+            and regulatory requirement that anchors it. Red traces also
+            generate a draft incident report.
+          </li>
+        </ol>
+        <p className="mb-3">
+          Each trace has a <strong>Diagram</strong> view (data flow as a
+          Mermaid chart, click any node to see the code) and an{" "}
+          <strong>Artifact</strong> view (the audit-ready JSON record an
+          examiner would consume). The tabs are above the diagram pane.
+        </p>
+        <p className="text-stone-600 text-sm">
+          The next pages walk through the regulatory thinking that
+          produced the registry. If you want the engineering view
+          instead, click the <em>Technical</em> tab above.
+        </p>
+      </>
+    ),
+  },
+  {
     title: "1. The regulation gets published",
     body: (
       <>
@@ -98,40 +138,6 @@ signers:
         <p className="text-stone-600 text-sm">
           Note for this demo: themes are pre-loaded as input fixtures.
           Theme synthesis (steps 1–3 above) is its own demo.
-        </p>
-      </>
-    ),
-  },
-  {
-    title: "5. What you do here — two steps",
-    body: (
-      <>
-        <p className="mb-3">
-          The demo splits the work into two visible steps so the
-          architecture stays honest:
-        </p>
-        <ul className="list-disc pl-5 space-y-2 mb-3">
-          <li>
-            <strong>Step 1 — Build map.</strong> Click <em>1. Build map</em>{" "}
-            in the header. The agent reads the registry YAMLs and writes a
-            plain-English summary per theme. The result is the{" "}
-            <strong>map artifact</strong> — viewable any time via{" "}
-            <em>View map</em> in the header.
-          </li>
-          <li>
-            <strong>Step 2 — Run trace.</strong> Click{" "}
-            <em>2. Run trace</em>. The agent applies the map to the
-            codebase and produces three <strong>trace artifacts</strong>{" "}
-            (green / yellow / red), each citing the exact theme record
-            and regulatory requirement that anchors it. Red traces also
-            generate a draft incident report.
-          </li>
-        </ul>
-        <p>
-          Each trace has two views: <strong>Diagram</strong> (the data
-          flow as a Mermaid chart, click a node to see the code) and{" "}
-          <strong>Artifact</strong> (the audit-ready JSON record an
-          examiner would consume). The tabs are above the diagram pane.
         </p>
       </>
     ),

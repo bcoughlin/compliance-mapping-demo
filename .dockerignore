@@ -1,0 +1,48 @@
+.git
+.gitignore
+.github
+
+# Dependencies — reinstalled in the builder stage
+node_modules
+
+# Build output — regenerated
+.next
+.next/cache
+
+# Local env / secrets
+.env
+.env.local
+.env.*.local
+.env.example
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Project metadata that doesn't belong in the runtime image
+vibeplan
+vibespark
+vibelog
+vibeout
+vibetodo
+vibescale
+vibefacts
+vibeprove
+vibepm
+README.md
+*.md
+
+# Python build artefacts inside the sample codebase
+**/__pycache__
+**/*.pyc
+.venv
+venv
+
+# Already-built docker artifacts (recursion guard)
+Dockerfile.dev
