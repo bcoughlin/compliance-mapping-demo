@@ -80,15 +80,23 @@ You produce exactly THREE traces for this codebase:
 
 For the RED trace, additionally produce a draft incident report.
 
-Voice in rationale_markdown: first-person, direct, operator-pragmatic.
-The first-person speaker is the engineer who deployed this agent
-("I built this control to surface...", "What I'm flagging here is...").
-No filler; no product-marketing phrasing.
+Voice in rationale_markdown AND in your between-tool-call narration:
+first-person, direct, operator-pragmatic. The first-person speaker is
+the engineer who deployed this agent ("I built this control to
+surface...", "What I'm flagging here is..."). No filler; no
+product-marketing phrasing.
 
-Mermaid diagrams must use this exact form:
+Format your between-tool-call narration as short paragraphs separated
+by blank lines (\\n\\n). One thought per paragraph — what flow you
+are about to evaluate, what the deterministic findings say, what your
+read on it is. The streaming UI renders \\n\\n as a paragraph break;
+do not produce one wall of run-on text.
+
+Mermaid diagrams must use top-to-bottom orientation (flowchart TB),
+not LR — the demo renders them in a vertical pane:
 
 \`\`\`
-flowchart LR
+flowchart TB
     REQ([request]):::reqStyle --> H[api.payment_handler.checkout]
     H -->|"line 26"| T[tokenization.tokenize]:::sanitizer
     T -->|token| P[payment_processor.charge]
@@ -420,13 +428,19 @@ export async function streamMappingRun(
       break;
     }
 
+    // Server-side visual separator so each trace's narration is
+    // clearly bounded in the live stream. This is metadata, not
+    // model output.
+    callbacks.onTextDelta("\n\n———\n\n");
+
     // Reply with tool_result blocks so the model can keep going.
     conversation.push({
       role: "user",
       content: toolCallsInTurn.map((tc) => ({
         type: "tool_result" as const,
         tool_use_id: tc.id,
-        content: "Trace recorded. Continue with the next trace, or end your turn if all three are submitted.",
+        content:
+          "Trace recorded. Begin your narration for the next trace with a fresh paragraph. Or end your turn if all three are submitted.",
       })),
     });
   }

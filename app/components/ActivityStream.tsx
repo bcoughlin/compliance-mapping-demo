@@ -9,10 +9,16 @@ interface ActivityStreamProps {
   errorMessage?: string;
 }
 
-const PHASE_LABEL: Record<string, string> = {
+const PHASE_LABEL_IDLE: Record<string, string> = {
   semgrep: "Semgrep taint analysis",
   callgraph: "AST call graph",
   narrate: "Claude narration",
+};
+
+const PHASE_LABEL_ACTIVE: Record<string, string> = {
+  semgrep: "Semgrep taint analysis",
+  callgraph: "AST call graph",
+  narrate: "Live Claude Narration",
 };
 
 export function ActivityStream({
@@ -63,52 +69,88 @@ function PhaseRow({ phase }: { phase: PhaseState }) {
   }, [phase.liveText]);
 
   const isActive = phase.status === "active";
-  const label = PHASE_LABEL[phase.phase] ?? phase.phase;
+  const isClaudeStreaming = isActive && phase.phase === "narrate";
+  const label = isActive
+    ? PHASE_LABEL_ACTIVE[phase.phase] ?? phase.phase
+    : PHASE_LABEL_IDLE[phase.phase] ?? phase.phase;
+
+  // Color theme for the active state — green when Claude is streaming,
+  // amber for the deterministic phases.
+  const dotClass = isClaudeStreaming ? "pulse-dot-green" : "pulse-dot";
+  const activeBgClass = isClaudeStreaming ? "phase-active-green" : "phase-active";
+  const progressClass = isClaudeStreaming
+    ? "phase-progress-bar-green"
+    : "phase-progress-bar";
+  const cursorClass = isClaudeStreaming ? "live-cursor-green" : "live-cursor";
+
+  const activeBorder = isClaudeStreaming
+    ? "border-emerald-400 shadow-sm shadow-emerald-200/50"
+    : "border-amber-400 shadow-sm shadow-amber-200/40";
+
+  const activeText = isClaudeStreaming ? "text-emerald-900" : "text-amber-900";
+  const activeMeta = isClaudeStreaming
+    ? "text-emerald-800 status-dots"
+    : "text-amber-800 status-dots";
+  const activeChevron = isClaudeStreaming ? "text-emerald-600" : "text-amber-600";
 
   return (
-    <div className="border border-stone-200 rounded-md bg-white overflow-hidden">
+    <div
+      className={`relative border rounded-md bg-white overflow-hidden transition-colors ${
+        isActive ? activeBorder : "border-stone-200"
+      }`}
+    >
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className="w-full px-4 py-2 flex items-center gap-3 hover:bg-stone-50 transition-colors"
+        className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-stone-50/50 transition-colors text-left ${
+          isActive ? activeBgClass : ""
+        }`}
       >
-        <span
-          className={`inline-block w-4 text-center text-xs font-mono ${
-            isActive ? "text-amber-600" : "text-emerald-600"
-          }`}
-        >
+        <span className="inline-flex items-center justify-center w-5">
           {isActive ? (
-            <span className="inline-block animate-pulse">▸</span>
+            <span className={dotClass} aria-label="running" />
           ) : (
-            "✓"
+            <span className="text-emerald-600 text-sm font-mono">✓</span>
           )}
         </span>
-        <span className="text-sm font-medium text-stone-800 flex-1 text-left">
+        <span
+          className={`text-sm flex-1 text-left ${
+            isActive ? `font-semibold ${activeText}` : "font-medium text-stone-800"
+          }`}
+        >
           {label}
         </span>
-        <span className="text-xs text-stone-500 font-mono">
+        <span
+          className={`text-xs font-mono ${
+            isActive ? activeMeta : "text-stone-500"
+          }`}
+        >
           {isActive ? phase.message : phase.summary}
         </span>
         <span
-          className={`text-xs text-stone-400 transition-transform ${
+          className={`text-xs transition-transform ${
             expanded ? "rotate-90" : ""
-          }`}
+          } ${isActive ? activeChevron : "text-stone-400"}`}
         >
           ▸
         </span>
       </button>
 
+      {isActive && <span className={progressClass} aria-hidden />}
+
       {expanded && (
-        <div className="px-4 pb-3 pt-1 border-t border-stone-100">
+        <div
+          className={`px-4 pb-3 pt-1 border-t ${
+            isClaudeStreaming ? "border-emerald-100" : "border-stone-100"
+          }`}
+        >
           {phase.liveText && (
             <div
               ref={liveRef}
-              className="font-mono text-xs text-stone-700 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto"
+              className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto py-1"
             >
               {phase.liveText}
-              {isActive && (
-                <span className="inline-block w-1.5 h-3 bg-stone-700 ml-0.5 animate-pulse align-middle" />
-              )}
+              {isActive && <span className={cursorClass} aria-hidden />}
             </div>
           )}
           {!phase.liveText && phase.detail && (
@@ -117,7 +159,13 @@ function PhaseRow({ phase }: { phase: PhaseState }) {
             </pre>
           )}
           {!phase.liveText && !phase.detail && isActive && (
-            <p className="text-xs text-stone-500 italic">{phase.message}</p>
+            <p
+              className={`text-xs italic flex items-center gap-2 ${
+                isClaudeStreaming ? "text-emerald-800" : "text-amber-800"
+              }`}
+            >
+              <span>{phase.message}</span>
+            </p>
           )}
         </div>
       )}

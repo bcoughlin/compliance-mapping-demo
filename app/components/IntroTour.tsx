@@ -222,39 +222,42 @@ const TECHNICAL_STEPS = [
 ];
 
 export function IntroTour({ open, onClose }: IntroTourProps) {
-  const [tab, setTab] = useState<"compliance" | "technical">("compliance");
+  // Linear flow: compliance 1..4 → technical 1..4 → done.
+  // Tabs are navigation shortcuts, not separate flows.
   const [step, setStep] = useState(0);
 
   if (!open) return null;
 
-  const steps = tab === "compliance" ? COMPLIANCE_STEPS : TECHNICAL_STEPS;
-  const current = steps[step];
-
-  function switchTab(next: "compliance" | "technical") {
-    setTab(next);
-    setStep(0);
-  }
+  const totalSteps = COMPLIANCE_STEPS.length + TECHNICAL_STEPS.length;
+  const inCompliance = step < COMPLIANCE_STEPS.length;
+  const sectionStep = inCompliance ? step : step - COMPLIANCE_STEPS.length;
+  const currentSteps = inCompliance ? COMPLIANCE_STEPS : TECHNICAL_STEPS;
+  const current = currentSteps[sectionStep];
+  const isLast = step === totalSteps - 1;
+  const isFirstOfTechnical = step === COMPLIANCE_STEPS.length;
 
   function dismiss() {
     setStep(0);
-    setTab("compliance");
     onClose();
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 backdrop-blur-sm px-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+      <div
+        className="bg-white rounded-lg shadow-2xl max-w-2xl w-full h-[70vh] overflow-hidden grid"
+        style={{ gridTemplateRows: "auto 1fr auto" }}
+      >
         {/* Tabs */}
         <div className="flex border-b border-stone-200">
           <TabButton
-            active={tab === "compliance"}
-            onClick={() => switchTab("compliance")}
+            active={inCompliance}
+            onClick={() => setStep(0)}
           >
             How this works (compliance)
           </TabButton>
           <TabButton
-            active={tab === "technical"}
-            onClick={() => switchTab("technical")}
+            active={!inCompliance}
+            onClick={() => setStep(COMPLIANCE_STEPS.length)}
           >
             How this works (technical)
           </TabButton>
@@ -269,23 +272,30 @@ export function IntroTour({ open, onClose }: IntroTourProps) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="overflow-y-auto px-6 py-6 min-h-0">
+          {isFirstOfTechnical && (
+            <div className="text-[11px] uppercase tracking-wider text-stone-500 font-medium mb-2">
+              Now switching to the technical track
+            </div>
+          )}
           <h2 className="text-lg font-semibold text-stone-900 mb-4">
             {current.title}
           </h2>
-          <div className="text-stone-700 leading-relaxed">
-            {current.body}
-          </div>
+          <div className="text-stone-700 leading-relaxed">{current.body}</div>
         </div>
 
         {/* Footer */}
         <div className="border-t border-stone-200 px-6 py-3 flex items-center justify-between bg-stone-50 rounded-b-lg">
           <div className="flex gap-1.5">
-            {steps.map((_, i) => (
+            {currentSteps.map((_, i) => (
               <div
                 key={i}
                 className={`h-1.5 w-6 rounded-full transition-colors ${
-                  i === step ? "bg-stone-800" : "bg-stone-300"
+                  i === sectionStep
+                    ? "bg-stone-800"
+                    : i < sectionStep
+                      ? "bg-stone-500"
+                      : "bg-stone-300"
                 }`}
               />
             ))}
@@ -301,7 +311,7 @@ export function IntroTour({ open, onClose }: IntroTourProps) {
                 Back
               </button>
             )}
-            {step < steps.length - 1 ? (
+            {!isLast ? (
               <button
                 type="button"
                 onClick={() => setStep((s) => s + 1)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { Phase, RunEvent, Trace } from "@/lib/types";
 
 export type PhaseState = {
@@ -22,8 +22,53 @@ export type StreamState = {
   totalFindings?: number;
 };
 
+const STORAGE_KEY = "compliance-mapping-demo:last-run-v1";
+
+// Only persist completed or errored runs — not idle (no point) and not
+// running (in-progress would be reloaded as half-finished, which is
+// confusing). Bumps the v1 suffix if the StreamState shape ever changes.
+function persistIfFinal(state: StreamState) {
+  if (typeof window === "undefined") return;
+  if (state.status !== "completed" && state.status !== "errored") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Quota or disabled — don't crash the UI.
+  }
+}
+
+function loadPersisted(): StreamState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StreamState;
+    if (
+      parsed &&
+      Array.isArray(parsed.phases) &&
+      Array.isArray(parsed.traces) &&
+      (parsed.status === "completed" || parsed.status === "errored")
+    ) {
+      return parsed;
+    }
+  } catch {
+    // corrupt entry — ignore
+  }
+  return null;
+}
+
+function clearPersisted() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 type Action =
   | { kind: "reset" }
+  | { kind: "hydrate"; state: StreamState }
   | { kind: "event"; event: RunEvent };
 
 const initial: StreamState = {
@@ -35,6 +80,10 @@ const initial: StreamState = {
 function reducer(state: StreamState, action: Action): StreamState {
   if (action.kind === "reset") {
     return { ...initial, status: "running" };
+  }
+
+  if (action.kind === "hydrate") {
+    return action.state;
   }
 
   const e = action.event;
@@ -119,8 +168,22 @@ export function useRunStream() {
   const [state, dispatch] = useReducer(reducer, initial);
   const sourceRef = useRef<EventSource | null>(null);
 
+  // Hydrate from localStorage on mount.
+  useEffect(() => {
+    const persisted = loadPersisted();
+    if (persisted) {
+      dispatch({ kind: "hydrate", state: persisted });
+    }
+  }, []);
+
+  // Persist any final state.
+  useEffect(() => {
+    persistIfFinal(state);
+  }, [state]);
+
   const start = useCallback(() => {
     sourceRef.current?.close();
+    clearPersisted();
 
     dispatch({ kind: "reset" });
 

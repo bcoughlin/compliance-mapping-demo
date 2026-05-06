@@ -2,7 +2,9 @@
 
 interface HeaderProps {
   status: "idle" | "running" | "completed" | "errored";
+  hasRunHistory: boolean;
   onRun: () => void;
+  onOpenRunModal: () => void;
   onShowTour: () => void;
   totalFindings?: number;
   totalTraces?: number;
@@ -10,13 +12,16 @@ interface HeaderProps {
 
 export function Header({
   status,
+  hasRunHistory,
   onRun,
+  onOpenRunModal,
   onShowTour,
   totalFindings,
   totalTraces,
 }: HeaderProps) {
   const isRunning = status === "running";
   const isDone = status === "completed";
+  const isErrored = status === "errored";
 
   return (
     <header className="sticky top-0 z-30 bg-stone-50/95 backdrop-blur border-b border-stone-200">
@@ -52,19 +57,31 @@ export function Header({
             How this works
           </button>
 
-          <button
-            type="button"
-            onClick={onRun}
-            disabled={isRunning}
-            className={`text-sm font-medium px-4 py-1.5 rounded-md transition-colors
-              ${
-                isRunning
-                  ? "bg-stone-200 text-stone-500 cursor-not-allowed"
-                  : "bg-stone-900 text-white hover:bg-stone-700"
-              }`}
-          >
-            {isRunning ? "Running…" : isDone ? "Run again" : "Run mapping"}
-          </button>
+          {hasRunHistory ? (
+            <button
+              type="button"
+              onClick={onOpenRunModal}
+              className={`text-sm font-medium px-4 py-1.5 rounded-md border transition-colors flex items-center gap-2
+                ${
+                  isRunning
+                    ? "border-amber-400 text-amber-800 bg-amber-50"
+                    : isErrored
+                      ? "border-red-300 text-red-700 hover:bg-red-50"
+                      : "border-stone-300 text-stone-700 hover:bg-stone-100"
+                }`}
+            >
+              {isRunning && <span className="pulse-dot" aria-hidden />}
+              {isRunning ? "Run in progress" : "Current run"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onRun}
+              className="text-sm font-medium px-4 py-1.5 rounded-md bg-stone-900 text-white hover:bg-stone-700"
+            >
+              Run mapping
+            </button>
+          )}
         </div>
       </div>
     </header>
